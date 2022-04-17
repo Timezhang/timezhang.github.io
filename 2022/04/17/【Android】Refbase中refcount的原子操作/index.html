@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   
   
-  <title>Hexo</title>
+  <title>【Android】Refbase中refcount的原子操作 | Hexo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Hexo">
-<meta property="og:url" content="http://example.com/index.html">
+  <meta name="description" content="在读Android 智能指针sp、wp、Refbase的源码时，发现对象引用计数refcount递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用rela">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【Android】Refbase中refcount的原子操作">
+<meta property="og:url" content="http://example.com/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E4%B8%ADrefcount%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/index.html">
 <meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="在读Android 智能指针sp、wp、Refbase的源码时，发现对象引用计数refcount递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用rela">
 <meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-04-17T02:54:16.000Z">
+<meta property="article:modified_time" content="2022-04-17T15:45:19.955Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
   
@@ -69,9 +73,7 @@
 </header>
 
       <div class="outer">
-        <section id="main">
-  
-    <article id="post-【Android】Refbase中refcount的原子操作" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+        <section id="main"><article id="post-【Android】Refbase中refcount的原子操作" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E4%B8%ADrefcount%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/" class="article-date">
   <time class="dt-published" datetime="2022-04-17T02:54:16.000Z" itemprop="datePublished">2022-04-17</time>
@@ -84,8 +86,8 @@
       <header class="article-header">
         
   
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E4%B8%ADrefcount%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">【Android】Refbase中refcount的原子操作</a>
+    <h1 class="p-name article-title" itemprop="headline name">
+      【Android】Refbase中refcount的原子操作
     </h1>
   
 
@@ -212,11 +214,9 @@ _ZNSt6atomicIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE5storeES6_St1
     </footer>
   </div>
   
-</article>
-
-
-
+    
   
+</article>
 
 
 </section>
