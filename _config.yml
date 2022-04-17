@@ -103,6 +103,6 @@ theme: landscape
 ## Docs: https://hexo.io/docs/one-command-deployment
 deploy:
   type: git
-  repository: https://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@github.com/Timezhang/timezhang.github.io
+  repository: https://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@github.com/Timezhang/timezhang.github.io
   branch: main
 
