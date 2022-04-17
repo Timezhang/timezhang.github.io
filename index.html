@@ -168,10 +168,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2022-04-17 10:54:16 / Modified: 23:45:19" itemprop="dateCreated datePublished" datetime="2022-04-17T10:54:16+08:00">2022-04-17</time>
+              <time title="Created: 2022-04-17 10:54:16" itemprop="dateCreated datePublished" datetime="2022-04-17T10:54:16+08:00">2022-04-17</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-04-18 00:09:26" itemprop="dateModified" datetime="2022-04-18T00:09:26+08:00">2022-04-18</time>
+              </span>
 
           
 
@@ -184,7 +190,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在读Android 智能指针sp、wp、Refbase的源码时，发现对象引用计数refcount递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用relaxed内存序，差异在哪？</p>
+          <p>在读Android智能指针sp、wp、Refbase的源码时，发现对象引用计数refcount递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用relaxed内存序，差异在哪？</p>
 <pre><code>std::atomic&lt;int32_t&gt; mStong;
 
 void RefBase::incStrong(const void* id) const
@@ -231,10 +237,32 @@ void RefBase::decStrong(const void* id) const
 <p>release和acquire配合起来用就可以达成上面所说的目的</p>
 <p>请看下面例子：</p>
 <p>有2个线程通过sp智能指针访问同一个对象obj，因为1.2是一定发生在2.2之前(递减为原子操作，肯定是先递减为1，再递减为0)，如果完全按照代码顺序，那么1.1必然发生在2.3之前，不会存在什么问题</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">graph TB</span><br><span class="line">A(thread-1)</span><br><span class="line">B[1.1 通过sp指针访问对象obj]</span><br><span class="line">C[1.2 obj引用计数递减为1]</span><br><span class="line">D[线程退出]</span><br><span class="line">E(thread-2)</span><br><span class="line">F[2.1 通过sp指针访问对象obj]</span><br><span class="line">G[2.2 obj引用计数递减为0]</span><br><span class="line">H[2.3 delete obj]</span><br><span class="line">I[线程退出]</span><br><span class="line">A--&gt;B--&gt;C--&gt;D</span><br><span class="line">E--&gt;F--&gt;G--&gt;H--&gt;I</span><br></pre></td></tr></table></figure>
+<pre class="mermaid">graph TB
+A(thread-1)
+B[1.1 通过sp指针访问对象obj]
+C[1.2 obj引用计数递减为1]
+D[线程退出]
+E(thread-2)
+F[2.1 通过sp指针访问对象obj]
+G[2.2 obj引用计数递减为0]
+H[2.3 delete obj]
+I[线程退出]
+A-->B-->C-->D
+E-->F-->G-->H-->I</pre>
 
 <p>但是ARM架构是弱内存序，cpu执行指令时为了做一些优化，可能会对指令进行重排，但是一定会保证单线程代码执行的正确性。比如将1.1重排到1.2之后，单独看thread-1，是不存在任何问题，因为thread-1递减mstrong之后不需要delete对象，完全不影响正确性。重排之后变成下面这样。虽然1.2还是一定发生在2.2之前，但是已经无法保证1.1发生在2.3之前了。那就有问题了。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">graph TB</span><br><span class="line">A(thread-1 重排后)</span><br><span class="line">B[1.1 通过sp指针访问对象obj]</span><br><span class="line">C[1.2 obj引用计数递减为1]</span><br><span class="line">D[线程退出]</span><br><span class="line">E(thread-2)</span><br><span class="line">F[2.1 通过sp指针访问对象obj]</span><br><span class="line">G[2.2 obj引用计数递减为0]</span><br><span class="line">H[2.3 delete obj]</span><br><span class="line">I[线程退出]</span><br><span class="line">A--&gt;C--&gt;B--&gt;D</span><br><span class="line">E--&gt;F--&gt;G--&gt;H--&gt;I</span><br></pre></td></tr></table></figure>
+<pre class="mermaid">graph TB
+A(thread-1 重排后)
+B[1.1 通过sp指针访问对象obj]
+C[1.2 obj引用计数递减为1]
+D[线程退出]
+E(thread-2)
+F[2.1 通过sp指针访问对象obj]
+G[2.2 obj引用计数递减为0]
+H[2.3 delete obj]
+I[线程退出]
+A-->C-->B-->D
+E-->F-->G-->H-->I</pre>
 
 <p>再看下cppreference中给的例子，和上面的其实是类似的：</p>
 <pre><code>std::atomic&lt;std::string*&gt; ptr;
@@ -409,15 +437,6 @@ _ZNSt6atomicIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE5storeES6_St1
 </div>
   <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
   </div>
-
-
-  <script src='https://unpkg.com/mermaid@/dist/mermaid.min.js'></script>
-  <script>
-    if (window.mermaid) {
-      mermaid.initialize({theme: 'forest'});
-    }
-  </script>
-
 
         
 
