@@ -145,7 +145,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E4%B8%ADrefcount%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -159,7 +159,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E4%B8%ADrefcount%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/" class="post-title-link" itemprop="url">【Android】Refbase中refcount的原子操作</a>
+            <a href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/" class="post-title-link" itemprop="url">【Android】Refbase对象引用计数操作中的内存序</a>
         </h2>
 
         <div class="post-meta">
@@ -176,7 +176,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-18 00:09:26" itemprop="dateModified" datetime="2022-04-18T00:09:26+08:00">2022-04-18</time>
+                <time title="Modified: 2022-04-18 22:46:15" itemprop="dateModified" datetime="2022-04-18T22:46:15+08:00">2022-04-18</time>
               </span>
 
           
@@ -190,7 +190,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在读Android智能指针sp、wp、Refbase的源码时，发现对象引用计数refcount递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用relaxed内存序，差异在哪？</p>
+          <p>在读Android智能指针sp、wp以及Refbase的源码时，发现对象强引用计数mstrong递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence(memory_order_acquire)。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用relaxed内存序，差异在哪？</p>
 <pre><code>std::atomic&lt;int32_t&gt; mStong;
 
 void RefBase::incStrong(const void* id) const
@@ -205,8 +205,6 @@ void RefBase::incStrong(const void* id) const
     &#125;
     ...
 &#125;
-
-
 void RefBase::decStrong(const void* id) const
 &#123;
     weakref_impl* const refs = mRefs;
@@ -227,14 +225,16 @@ void RefBase::decStrong(const void* id) const
 <p>在stack overflow中搜到这么个回答，其中有例子代码，但是感觉也没讲到本质，一直在纠结release-acquire ordering的表面意思，没有从指令重排的角度讲，看了半天还没理解：</p>
 <pre><code>https://stackoverflow.com/questions/48124031/stdmemory-order-relaxed-atomicity-with-respect-to-the-same-atomic-variable/48148318#48148318
 </code></pre>
-<p>后面又去看了一些资料，refcount递减使用memory_order_release内存序并且设置内存屏障, 就是为了保证：<br>    在多线程场景下，不管最后哪个线程(将mstrong递减为0的线程)负责delete对象，delete对象一定要发生在其他线程访问对象完成之后</p>
+<p>后面又去看了一些资料，mstrong递减使用memory_order_release内存序并且设置内存屏障, 就是为了保证：</p>
+<pre><code>在多线程场景下，不管最后哪个线程(将mstrong递减为0的线程)负责delete对象，delete对象一定要发生在其他线程访问对象完成之后
+</code></pre>
 <p>memory_order_release作用是保证当前线程所有读写内存的指令不能重排到release后面，即所有线程访问对象发生在mstrong递减之前</p>
-<pre><code>cppreference：A store operation with this memory order performs the release operation: no reads or writes in the current thread can be reordered after this store. All writes in the current thread are visible in other threads that acquire the same atomic variable (see Release-Acquire ordering below) and writes that carry a dependency into the atomic variable become visible in other threads that consume the same atomic (see Release-Consume ordering below). 
+<pre><code>cppreference中的描述：A store operation with this memory order performs the release operation: no reads or writes in the current thread can be reordered after this store. All writes in the current thread are visible in other threads that acquire the same atomic variable (see Release-Acquire ordering below) and writes that carry a dependency into the atomic variable become visible in other threads that consume the same atomic (see Release-Consume ordering below). 
 </code></pre>
 <p>memory_order_acquire作用是保证表示当前线程读写内存的指令不能重排到acquire前面，在mstrong递减为0时，设置acquire的内存屏障，那么在最后将refcount递减为0的线程中，delete对象一定发生在递减为0之后</p>
-<pre><code>cppreference：A load operation with this memory order performs the acquire operation on the affected memory location: no reads or writes in the current thread can be reordered before this load. All writes in other threads that release the same atomic variable are visible in the current thread (see Release-Acquire ordering below)
+<pre><code>cppreference中的描述：A load operation with this memory order performs the acquire operation on the affected memory location: no reads or writes in the current thread can be reordered before this load. All writes in other threads that release the same atomic variable are visible in the current thread (see Release-Acquire ordering below)
 </code></pre>
-<p>release和acquire配合起来用就可以达成上面所说的目的</p>
+<p>memory_order_release和memory_order_acquire配合起来用就可以达成上面所说的目的</p>
 <p>请看下面例子：</p>
 <p>有2个线程通过sp智能指针访问同一个对象obj，因为1.2是一定发生在2.2之前(递减为原子操作，肯定是先递减为1，再递减为0)，如果完全按照代码顺序，那么1.1必然发生在2.3之前，不会存在什么问题</p>
 <pre class="mermaid">graph TB
@@ -250,7 +250,7 @@ I[线程退出]
 A-->B-->C-->D
 E-->F-->G-->H-->I</pre>
 
-<p>但是ARM架构是弱内存序，cpu执行指令时为了做一些优化，可能会对指令进行重排，但是一定会保证单线程代码执行的正确性。比如将1.1重排到1.2之后，单独看thread-1，是不存在任何问题，因为thread-1递减mstrong之后不需要delete对象，完全不影响正确性。重排之后变成下面这样。虽然1.2还是一定发生在2.2之前，但是已经无法保证1.1发生在2.3之前了。那就有问题了。</p>
+<p>但是ARM架构是弱内存序，cpu执行指令时为了做一些优化，可能会对指令进行重排，但是一定会保证单线程代码执行的正确性。比如将1.1重排到1.2之后，单独看thread-1，是不存在任何问题，因为thread-1递减mstrong之后不需要delete对象，完全不影响正确性。重排之后变成下面这样。虽然1.2还是一定发生在2.2之前，但是已经无法保证1.1发生在2.3之前了。那就有问题了</p>
 <pre class="mermaid">graph TB
 A(thread-1 重排后)
 B[1.1 通过sp指针访问对象obj]
@@ -277,7 +277,6 @@ void producer()
     // 其实重排并不会对线程1正确性产生影响)
     ptr.store(p, std::memory_order_release);
 &#125;
-
 void consumer()
 &#123;
     std::string* p2;
@@ -290,7 +289,6 @@ void consumer()
     assert(*p2 == &quot;Hello&quot;); // 必然为真
     assert(data == 42); // 必然为真
 &#125;
-
 int main()
 &#123;
     std::thread t1(producer);
@@ -298,28 +296,7 @@ int main()
     t1.join(); t2.join();
 &#125;
 </code></pre>
-<p>std::atomic使用的内存顺序主要是为了做线程之间的同步。到这里问题基本上搞清楚了，但是还是想看下底层一点的实现，汇编层面上指定内存序是咋实现的。</p>
-<pre><code>adrp    x0, data
-add     x0, x0, :lo12:data
-mov     w1, 42
-str     w1, [x0]
-adrp    x0, _Z3ptrB5cxx11
-add     x0, x0, :lo12:_Z3ptrB5cxx11
-mov     w2, 3
-ldr     x1, [x29, 48]
-bl _ZNSt6atomicIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE5storeES6_St12memory_order
-nop
-
-
-_ZNSt6atomicIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE5storeES6_St12memory_order:
-</code></pre>
-<p>.LFB2410:<br>        …<br>        add     x29, sp, 0<br>        str     x0, [x29, 40]<br>        str     x1, [x29, 32]<br>        str     w2, [x29, 28]<br>        ldr     x0, [x29, 40]<br>        str     x0, [x29, 64]<br>        ldr     x0, [x29, 32]<br>        str     x0, [x29, 72]<br>        ldr     w0, [x29, 28]<br>        str     w0, [x29, 56]<br>        mov     w1, 65535<br>        ldr     w0, [x29, 56]<br>        bl      _ZStanSt12memory_orderSt23__memory_order_modifier<br>        str     w0, [x29, 60]<br>        ldr     x0, [x29, 64]<br>        ldr     x1, [x29, 72]<br>        stlr    x1, [x0]<br>        nop<br>        ldp     x29, x30, [sp], 80<br>        ret</p>
-<pre><code>    .section    .text._ZStanSt12memory_orderSt23__memory_order_modifier,&quot;axG&quot;,@progbits,_ZStanSt12memory_orderSt23__memory_order_modifier,comdat
-    .align  2
-    .weak   _ZStanSt12memory_orderSt23__memory_order_modifier
-    .type   _ZStanSt12memory_orderSt23__memory_order_modifier, %function
-</code></pre>
-<p>_ZStanSt12memory_orderSt23__memory_order_modifier:<br>.LFB1905:<br>        .cfi_startproc<br>        sub     sp, sp, #16<br>        .cfi_def_cfa_offset 16<br>        str     w0, [sp, 12]<br>        str     w1, [sp, 8]<br>        ldr     w1, [sp, 12]<br>        ldr     w0, [sp, 8]<br>        and     w0, w1, w0<br>        add     sp, sp, 16<br>        .cfi_def_cfa_offset 0<br>        ret<br>        .cfi_endproc<br>.LFE1905:<br>        .size   _ZStanSt12memory_orderSt23__memory_order_modifier, .-_ZStanSt12memory_orderSt23__memory_order_modifier</p>
+<p>到这里问题基本上搞清楚了，memory_order_release和memory_order_acquire配合起来可以用来做线程间的同步。</p>
 
       
     </div>
