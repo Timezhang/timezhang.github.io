@@ -145,6 +145,109 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/" class="post-title-link" itemprop="url">【Android】ProcessState单例模式中的双重检查锁定写法并不安全</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-04-18 22:50:14 / Modified: 23:42:22" itemprop="dateCreated datePublished" datetime="2022-04-18T22:50:14+08:00">2022-04-18</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>在看binder源码的时候，看到&#x2F;frameworks&#x2F;native&#x2F;libs&#x2F;binder&#x2F;ProcessState.cpp中有这么一笔修改，说双重检查锁定模式在多线程环境下并不安全：</p>
+<pre><code>double checked locking pattern is not safe on SMP
+Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
+</code></pre>
+<p>修改前的代码本质上是使用双重检查锁定模式的写法，这个写法在单例模式中很常见：</p>
+<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
+&#123;
+    // 第一次检查：如果gprocess不为空，直接返回
+    if (gProcess != NULL) &#123;
+        return gProcess;
+    &#125;
+    // gProces为空，可能有多个线程同时执行new ProcessState
+    // 所以加锁保证只有一个线程能去new ProcessState
+    Mutex::Autolock _l(gProcessMutex);
+    // 第二次检查：如果gprocess为空，就new ProcessState
+    if (gProcess == NULL) &#123;
+        gProcess = new ProcessState(&quot;/dev/binder&quot;);
+    &#125;
+    return gProcess;
+&#125;
+</code></pre>
+<p>修改后的代码在函数开头就加锁，不管ProcessState对象有没有被创建，每个线程通过这个单例函数获取ProcessState对象时就得获取锁，这样效率肯定会变低，为什么要这么改呢？为什么以前双重检查锁定模式的写法不安全呢？</p>
+<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
+&#123;
+    // 函数开头就加锁，也能保证只有一个线程能去new ProcessState
+    Mutex::Autolock _l(gProcessMutex);
+    // 只有一次检查
+    if (gProcess != NULL) &#123;
+        return gProcess;
+    &#125;
+    gProcess = new ProcessState(&quot;/dev/binder&quot;);
+    return gProcess;
+&#125;
+</code></pre>
+<p>创建一个对象并不是原子操作，gProcess &#x3D; new ProcessState(“&#x2F;dev&#x2F;binder”)可以分为3步：</p>
+<pre><code>1. 分配ProcessState对象所需内存
+2. 初始化对象，比如成员变量fd = open(&quot;/dev/binder&quot;)
+3. 将分配的内存地址赋值给gProcess
+</code></pre>
+<p>因为ARM架构是弱内存序，为了性能优化有时候会做指令重排，正常代码执行顺序是1-&gt;2-&gt;3，但是可能被重排成1-&gt;3-&gt;2。这种重排也不会对单线程运行的结果产生啥影响，所以是有可能发生的。那我们再回过头来看ProcessState::self()函数以前的写法，多个线程同时调用该函数就可能会出现问题：</p>
+<pre><code>初始:  gProcess = NULL
+线程1: 负责创建对象，但是指令被重排成1-&gt;3-&gt;2，执行完1和3，2还没执行，gProcess已被赋值却没有完成对象初始化
+线程2: 开始获取gProcess，因为gProcess已被线程1赋值，所以获取成功，但是线程1还没有完成对象的初始化，线程2去访问gProcess就会出现问题
+</code></pre>
+<p>所以为了多线程环境下的安全性，只好在函数开头就加锁了，尽管会牺牲一定的性能</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -378,7 +481,7 @@ int main()
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-count">2</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
