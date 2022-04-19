@@ -28,7 +28,7 @@
 <meta property="og:description" content="对adrp和adr这种PC相对寻址的指令一直只知道个大概，比如在取全局变量时经常就会用adrp指令，但是没有深入去了解，最好最近在看armv8的手册，就再梳理下。 ADRP先看下armv8用户手册中对adrp指令的描述: Form PC-relative address to 4KB page adds an immediate value that is shifted left by 12 b">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2022-04-19T14:43:14.000Z">
-<meta property="article:modified_time" content="2022-04-19T17:05:47.151Z">
+<meta property="article:modified_time" content="2022-04-19T17:10:03.528Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
 
@@ -180,7 +180,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-20 01:05:47" itemprop="dateModified" datetime="2022-04-20T01:05:47+08:00">2022-04-20</time>
+                <time title="Modified: 2022-04-20 01:10:03" itemprop="dateModified" datetime="2022-04-20T01:10:03+08:00">2022-04-20</time>
               </span>
 
           
@@ -275,15 +275,15 @@ X0 = base + imm;       // X0   = 0x412000
 X0 = X0 + 0x2c = 0x41202c
 </code></pre>
 <p>诶～ 0x41202c不就是全局变量a的地址吗？就这样对a寻址成功了？是的，这就是adrp的作用！先根据PC+imm进行寻址，获得a所在的4K页地址，再结合add指令，加上offset得到a的最终地址。这就是PC相对寻址，imm就是个相对PC所在4K页地址的offset，可正可负。那反过来adrp指令编码中的immhi和immlo其实是在编译过程中计算出来的：</p>
-<pre><code>1.计算全局变量a所在4K页地址(a地址低12位置0)
-2.计算adrp指令地址所在4K页地址(低12位置0)
-3.imm = a所在4K页地址 - adrp指令所在4K页地址
-4.从imm中拆出immlo和immhi，编码到adrp指令中
-5.将a地址到a所在4K页地址的offset编码到下一条add指令中
+<pre><code>1) 计算全局变量a所在4K页地址(a地址低12位置0)
+2) 计算adrp指令地址所在4K页地址(低12位置0)
+3) imm = a所在4K页地址 - adrp指令所在4K页地址
+4) 从imm中拆出immlo和immhi，编码到adrp指令中
+5) 将a地址到a所在4K页地址的offset编码到下一条add指令中
 </code></pre>
 <p>adrp寻址原理搞清楚了，接着看下结合add指令，寻址范围有多少：</p>
-<pre><code>2的21次方(immhi和imm共21位) × 4K = -4G ~ +4G
-范围共8G，PC地址向前4G，向后4G
+<pre><code>// 范围共8G，PC地址向前4G，向后4G
+2的21次方(immhi和imm共21位) × 4K = -4G ~ +4G
 </code></pre>
 <h1 id="ADR"><a href="#ADR" class="headerlink" title="ADR"></a>ADR</h1><p>待分析</p>
 
