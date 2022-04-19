@@ -145,6 +145,162 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/" class="post-title-link" itemprop="url">【ARM】adrp和adr指令详解</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2022-04-19 22:43:14" itemprop="dateCreated datePublished" datetime="2022-04-19T22:43:14+08:00">2022-04-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-04-20 01:05:47" itemprop="dateModified" datetime="2022-04-20T01:05:47+08:00">2022-04-20</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>对adrp和adr这种PC相对寻址的指令一直只知道个大概，比如在取全局变量时经常就会用adrp指令，但是没有深入去了解，最好最近在看armv8的手册，就再梳理下。</p>
+<h1 id="ADRP"><a href="#ADRP" class="headerlink" title="ADRP"></a>ADRP</h1><p>先看下armv8用户手册中对adrp指令的描述:</p>
+<pre><code>Form PC-relative address to 4KB page adds an immediate value that is shifted left by 12 bits, to the PC value to form a PC-relative address, with the bottom 12 bits masked out, and writes the result to the destination register.
+
+格式：ADRP &lt;Xd&gt;, &lt;label&gt;
+
+&lt;Xd&gt; Is the 64-bit name of the general-purpose destination register, encoded in the &quot;Rd&quot; field.
+&lt;label&gt; Is the program label whose 4KB page address is to be calculated. Its offset from the page address of this instruction, in the range +/-4GB, is encoded as &quot;immhi:immlo&quot; times 4096.
+</code></pre>
+<p>看到上面的这段英文，可能有点绕，没关系，继续往下看：</p>
+<pre><code>adrp指令是32位的，指令编码：
+31 30  29       23                     5 4       0
+--------------------------------------------------
+|  |immlo|      |          immhi        |   Rd   |
+--------------------------------------------------
+
+指令解码:
+// 从低5位中解析目标寄存器的编号，5位编码可以表示32个
+integer d = UInt(Rd);
+// 从5-23位解析出immhi，从29-30位解析出immhi，加上低12位为0，得到一个32位的立即数
+// 把得到的32位立即数扩充到64位，注意是有符号扩充，因为imm可能为负数
+bits(64) imm = SignExtend(immhi:immlo:Zeros(12), 64);
+
+伪码：
+// 获取PC地址，在armv8上是64位，作为基址base
+bits(64) base = PC[];
+// 将base低12位置为0，求base所在4K页地址
+base&lt;11:0&gt; = Zeros(12);
+// base+imm的结果赋给目标寄存器
+X[d] = base + imm;
+</code></pre>
+<p>对上面英文不理解的看到这里应该对adrp指令有点感悟了，所以看指令的描述不如直接看编码和实现，很简单，adrp就是获取当前的PC地址，低12位置0，然后加上一个imm立即数，将最终结果赋给目标寄存器。但是计算imm所用的immhi和immlo是怎么来的呢？adrp的作用又是啥呢？请看这么一段测试代码:</p>
+<pre><code>// adrp.c
+int a = 0;
+int b = 0;
+
+int main()
+&#123;
+    a = 1;
+    return 0;
+&#125;
+</code></pre>
+<p>编译和显示汇编:</p>
+<pre><code>aarch64-linux-gnu-gcc adrp.c -o adrp
+aarch64-linux-gnu-objdump -D adrp
+</code></pre>
+<p>main函数汇编如下，可以看到寻址全局变量b的时候就用到adrp指令：</p>
+<pre><code>0000000000400570 &lt;main&gt;:
+  400570:       b0000080        adrp    x0, 411000 &lt;_GLOBAL_OFFSET_TABLE_+0x28&gt;
+  400574:       9100c000        add     x0, x0, #0x2c
+  400578:       52800021        mov     w1, #0x1 
+  40057c:       b9000001        str     w1, [x0]
+  400580:       52800000        mov     w0, #0x0
+  400584:       d65f03c0        ret
+
+0000000000411028 &lt;__bss_start&gt;:
+  411028:       00000000        .word   0x00000000
+000000000041102c &lt;a&gt;:
+  41102c:       00000000        .word   0x00000000
+0000000000411030 &lt;b&gt;:
+    ...
+</code></pre>
+<p>“adrp x0, 411000” 这条指令的十六进制机器码为b0000080，转成二进制编码就是:    </p>
+<pre><code>1100 0000 0000 0000 0000 0000 1000 0000
+</code></pre>
+<p>根据指令二进制编码进行解码，可以解析出immhi、immlo、Rd</p>
+<pre><code>Rd    = 0                    (0-4)     表示目的寄存器是X0
+immhi = 0000 0000 0000 100   (5-23)    
+immlo = 10                   (29-30)
+imm = 0000 0000 0000 0001 0010 0000 0000 0000 = 0x12000
+</code></pre>
+<p>再根据伪码算最终赋给目标寄存器X0的值是多少</p>
+<pre><code>bits(64) base = PC[]   // base = 0x400570
+base&lt;11:0&gt; = Zeros(12) // base = 0x400000
+X0 = base + imm;       // X0   = 0x412000
+</code></pre>
+<p>所以”adrp x0, 411000”执行完，X0 &#x3D; 0x412000，继续执行下一条指令”add x0, x0, #0x2c”：</p>
+<pre><code>// 0x2c为a地址到所在4k页地址的offset
+X0 = X0 + 0x2c = 0x41202c
+</code></pre>
+<p>诶～ 0x41202c不就是全局变量a的地址吗？就这样对a寻址成功了？是的，这就是adrp的作用！先根据PC+imm进行寻址，获得a所在的4K页地址，再结合add指令，加上offset得到a的最终地址。这就是PC相对寻址，imm就是个相对PC所在4K页地址的offset，可正可负。那反过来adrp指令编码中的immhi和immlo其实是在编译过程中计算出来的：</p>
+<pre><code>1.计算全局变量a所在4K页地址(a地址低12位置0)
+2.计算adrp指令地址所在4K页地址(低12位置0)
+3.imm = a所在4K页地址 - adrp指令所在4K页地址
+4.从imm中拆出immlo和immhi，编码到adrp指令中
+5.将a地址到a所在4K页地址的offset编码到下一条add指令中
+</code></pre>
+<p>adrp寻址原理搞清楚了，接着看下结合add指令，寻址范围有多少：</p>
+<pre><code>2的21次方(immhi和imm共21位) × 4K = -4G ~ +4G
+范围共8G，PC地址向前4G，向后4G
+</code></pre>
+<h1 id="ADR"><a href="#ADR" class="headerlink" title="ADR"></a>ADR</h1><p>待分析</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -168,10 +324,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2022-04-18 22:50:14 / Modified: 23:49:15" itemprop="dateCreated datePublished" datetime="2022-04-18T22:50:14+08:00">2022-04-18</time>
+              <time title="Created: 2022-04-18 22:50:14" itemprop="dateCreated datePublished" datetime="2022-04-18T22:50:14+08:00">2022-04-18</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-04-19 22:49:56" itemprop="dateModified" datetime="2022-04-19T22:49:56+08:00">2022-04-19</time>
+              </span>
 
           
 
@@ -223,7 +385,7 @@ Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
 2. 初始化对象，比如成员变量fd = open(&quot;/dev/binder&quot;)
 3. 将分配的内存地址赋值给gProcess
 </code></pre>
-<p>因为ARM架构是弱内存序，为了性能优化有时候会做指令重排，正常代码执行顺序是1-&gt;2-&gt;3，但是可能被重排成1-&gt;3-&gt;2。这种重排也不会对单线程运行的结果产生啥影响，所以是有可能发生的。那我们再回过头来看ProcessState::self()函数以前的写法，多个线程同时调用该函数就可能会出现问题：</p>
+<p>因为ARM架构是弱内存序，为了性能优化有时候CPU会做指令重排，正常代码执行顺序是1-&gt;2-&gt;3，但是可能被重排成1-&gt;3-&gt;2。这种重排也不会对单线程运行的结果产生啥影响，所以是有可能发生的。那我们再回过头来看ProcessState::self()函数以前的写法，多个线程同时调用该函数就可能会出现问题：</p>
 <pre><code>---------------------------------------------------------------
 初始:  gProcess = NULL
 ---------------------------------------------------------------
@@ -234,7 +396,9 @@ Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
       但是线程1还没有完成对象的初始化，线程2去访问gProcess就会出现问题
 ---------------------------------------------------------------
 </code></pre>
-<p>所以为了多线程环境下的安全性，只好在函数开头就加锁了，尽管会牺牲一定的性能</p>
+<p>所以为了多线程环境下的安全性，只好在函数开头就加锁了，尽管会牺牲一定的效率。Android在开发者网站上也说明了这种场景，链接如下：</p>
+<pre><code>https://developer.android.google.cn/training/articles/smp?hl=zh_cn
+</code></pre>
 
       
     </div>
@@ -487,7 +651,7 @@ int main()
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-count">3</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
