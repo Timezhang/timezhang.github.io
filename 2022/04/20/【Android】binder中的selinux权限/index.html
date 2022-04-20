@@ -20,19 +20,19 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="在看binder源码的时候，看到&#x2F;frameworks&#x2F;native&#x2F;libs&#x2F;binder&#x2F;ProcessState.cpp中有这么一笔修改，说双重检查锁定模式在多线程环境下并不安全： double checked locking pattern is not safe on SMP Change-Id: Ie6dd564bdcd45647cb4">
+  <meta name="description" content="&#x2F;&#x2F; security&#x2F;selinux&#x2F;include&#x2F;classmap.h struct security_class_mapping secclass_map[] &#x3D; &amp;#123;     ...     &amp;#123; &quot;binder&quot;, &amp;#123; &quot;impersonate&quot;, &quot;call&quot;, &quot;set_context_">
 <meta property="og:type" content="article">
-<meta property="og:title" content="【Android】ProcessState单例模式中的双重检查锁定写法并不安全">
-<meta property="og:url" content="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/index.html">
+<meta property="og:title" content="【Android】binder中的selinux权限">
+<meta property="og:url" content="http://example.com/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/index.html">
 <meta property="og:site_name" content="Hexo">
-<meta property="og:description" content="在看binder源码的时候，看到&#x2F;frameworks&#x2F;native&#x2F;libs&#x2F;binder&#x2F;ProcessState.cpp中有这么一笔修改，说双重检查锁定模式在多线程环境下并不安全： double checked locking pattern is not safe on SMP Change-Id: Ie6dd564bdcd45647cb4">
+<meta property="og:description" content="&#x2F;&#x2F; security&#x2F;selinux&#x2F;include&#x2F;classmap.h struct security_class_mapping secclass_map[] &#x3D; &amp;#123;     ...     &amp;#123; &quot;binder&quot;, &amp;#123; &quot;impersonate&quot;, &quot;call&quot;, &quot;set_context_">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2022-04-18T14:50:14.000Z">
-<meta property="article:modified_time" content="2022-04-19T14:49:56.828Z">
+<meta property="article:published_time" content="2022-04-20T14:19:25.000Z">
+<meta property="article:modified_time" content="2022-04-20T14:31:32.578Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/">
+<link rel="canonical" href="http://example.com/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/">
 
 
 <script id="page-configurations">
@@ -45,7 +45,7 @@
   };
 </script>
 
-  <title>【Android】ProcessState单例模式中的双重检查锁定写法并不安全 | Hexo</title>
+  <title>【Android】binder中的selinux权限 | Hexo</title>
   
 
 
@@ -150,7 +150,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -163,7 +163,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          【Android】ProcessState单例模式中的双重检查锁定写法并不安全
+          【Android】binder中的selinux权限
         </h1>
 
         <div class="post-meta">
@@ -172,16 +172,10 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
+              
 
-              <time title="Created: 2022-04-18 22:50:14" itemprop="dateCreated datePublished" datetime="2022-04-18T22:50:14+08:00">2022-04-18</time>
+              <time title="Created: 2022-04-20 22:19:25 / Modified: 22:31:32" itemprop="dateCreated datePublished" datetime="2022-04-20T22:19:25+08:00">2022-04-20</time>
             </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-19 22:49:56" itemprop="dateModified" datetime="2022-04-19T22:49:56+08:00">2022-04-19</time>
-              </span>
 
           
 
@@ -194,58 +188,108 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>在看binder源码的时候，看到&#x2F;frameworks&#x2F;native&#x2F;libs&#x2F;binder&#x2F;ProcessState.cpp中有这么一笔修改，说双重检查锁定模式在多线程环境下并不安全：</p>
-<pre><code>double checked locking pattern is not safe on SMP
-Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
-</code></pre>
-<p>修改前的代码本质上是使用双重检查锁定模式的写法，这个写法在单例模式中很常见：</p>
-<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
-&#123;
-    // 第一次检查：如果gprocess不为空，直接返回
-    if (gProcess != NULL) &#123;
-        return gProcess;
-    &#125;
-    // gProces为空，可能有多个线程同时执行new ProcessState
-    // 所以加锁保证只有一个线程能去new ProcessState
-    Mutex::Autolock _l(gProcessMutex);
-    // 第二次检查：如果gprocess为空，就new ProcessState
-    if (gProcess == NULL) &#123;
-        gProcess = new ProcessState(&quot;/dev/binder&quot;);
-    &#125;
-    return gProcess;
+        <pre><code>// security/selinux/include/classmap.h
+struct security_class_mapping secclass_map[] = &#123;
+    ...
+    &#123; &quot;binder&quot;, &#123; &quot;impersonate&quot;, &quot;call&quot;, &quot;set_context_mgr&quot;, &quot;transfer&quot;, NULL &#125; &#125;,
+    ...
 &#125;
 </code></pre>
-<p>修改后的代码在函数开头就加锁，不管ProcessState对象有没有被创建，每个线程通过这个单例函数获取ProcessState对象时就得获取锁，这样效率肯定会变低，为什么要这么改呢？为什么以前双重检查锁定模式的写法不安全呢？</p>
-<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
+<h1 id="BINDER-SET-CONTEXT-MGR权限"><a href="#BINDER-SET-CONTEXT-MGR权限" class="headerlink" title="BINDER__SET_CONTEXT_MGR权限"></a>BINDER__SET_CONTEXT_MGR权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_set_context_mgr(const struct cred *mgr)
 &#123;
-    // 函数开头就加锁，也能保证只有一个线程能去new ProcessState
-    Mutex::Autolock _l(gProcessMutex);
-    // 只有一次检查
-    if (gProcess != NULL) &#123;
-        return gProcess;
-    &#125;
-    gProcess = new ProcessState(&quot;/dev/binder&quot;);
-    return gProcess;
+    return avc_has_perm(&amp;selinux_state,
+                current_sid(), cred_sid(mgr), SECCLASS_BINDER,
+                BINDER__SET_CONTEXT_MGR, NULL);
 &#125;
 </code></pre>
-<p>创建一个对象并不是原子操作，gProcess &#x3D; new ProcessState(“&#x2F;dev&#x2F;binder”)可以分为3步：</p>
-<pre><code>1. 分配ProcessState对象所需内存
-2. 初始化对象，比如成员变量fd = open(&quot;/dev/binder&quot;)
-3. 将分配的内存地址赋值给gProcess
+<h1 id="BINDER-CALL-权限"><a href="#BINDER-CALL-权限" class="headerlink" title="BINDER__CALL 权限"></a>BINDER__CALL 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transaction(const struct cred *from,
+            	      const struct cred *to)
+&#123;
+    u32 mysid = current_sid();
+    u32 fromsid = cred_sid(from);
+    u32 tosid = cred_sid(to);
+    int rc;
+
+    if (mysid != fromsid) &#123;
+        rc = avc_has_perm(&amp;selinux_state,
+                mysid, fromsid, SECCLASS_BINDER,
+                BINDER__IMPERSONATE, NULL);
+        if (rc)
+            return rc;
+    &#125;
+
+    return avc_has_perm(&amp;selinux_state, fromsid, tosid,
+                SECCLASS_BINDER, BINDER__CALL, NULL);
+&#125;
 </code></pre>
-<p>因为ARM架构是弱内存序，为了性能优化有时候CPU会做指令重排，正常代码执行顺序是1-&gt;2-&gt;3，但是可能被重排成1-&gt;3-&gt;2。这种重排也不会对单线程运行的结果产生啥影响，所以是有可能发生的。那我们再回过头来看ProcessState::self()函数以前的写法，多个线程同时调用该函数就可能会出现问题：</p>
-<pre><code>---------------------------------------------------------------
-初始:  gProcess = NULL
----------------------------------------------------------------
-线程1: 负责创建对象，但是指令被重排成1-&gt;3-&gt;2，执行完1和3，2还没执行
-      gProcess已被赋值却没有完成对象初始化
----------------------------------------------------------------
-线程2: 开始获取gProcess，因为gProcess已被线程1赋值，所以获取成功，
-      但是线程1还没有完成对象的初始化，线程2去访问gProcess就会出现问题
----------------------------------------------------------------
+<h1 id="BINDER-TRANSFER-权限"><a href="#BINDER-TRANSFER-权限" class="headerlink" title="BINDER__TRANSFER 权限"></a>BINDER__TRANSFER 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transfer_binder(const struct cred *from,
+    				  const struct cred *to)
+&#123;
+    return avc_has_perm(&amp;selinux_state,
+        	    cred_sid(from), cred_sid(to),
+                SECCLASS_BINDER, BINDER__TRANSFER,
+                NULL);
+&#125;
 </code></pre>
-<p>所以为了多线程环境下的安全性，只好在函数开头就加锁了，尽管会牺牲一定的效率。Android在开发者网站上也说明了这种场景，链接如下：</p>
-<pre><code>https://developer.android.google.cn/training/articles/smp?hl=zh_cn
+<h1 id="BINDER-TRANSFER-权限-1"><a href="#BINDER-TRANSFER-权限-1" class="headerlink" title="BINDER__TRANSFER 权限"></a>BINDER__TRANSFER 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transfer_file(const struct cred *from,
+                const struct cred *to,
+                struct file *file)
+&#123;
+    u32 sid = cred_sid(to);
+    struct file_security_struct *fsec = selinux_file(file);
+    struct dentry *dentry = file-&gt;f_path.dentry;
+    struct inode_security_struct *isec;
+    struct common_audit_data ad;
+    int rc;
+
+    ad.type = LSM_AUDIT_DATA_PATH;
+    ad.u.path = file-&gt;f_path;
+
+    if (sid != fsec-&gt;sid) &#123;
+        rc = avc_has_perm(&amp;selinux_state,
+                sid, fsec-&gt;sid,
+                SECCLASS_FD,
+                FD__USE,
+                &amp;ad);
+        if (rc)
+            return rc;
+    &#125;
+
+    if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
+        return 0;
+
+    isec = backing_inode_security(dentry);
+    return avc_has_perm(&amp;selinux_state,
+                sid, isec-&gt;sid, isec-&gt;sclass, file_to_av(file),
+                &amp;ad);
+&#125;
+
+/* Convert a Linux file to an access vector. */
+static inline u32 file_to_av(struct file *file)
+&#123;
+    u32 av = 0;
+
+    if (file-&gt;f_mode &amp; FMODE_READ)
+        av |= FILE__READ;
+    if (file-&gt;f_mode &amp; FMODE_WRITE) &#123;
+        if (file-&gt;f_flags &amp; O_APPEND)
+            av |= FILE__APPEND;
+        else
+            av |= FILE__WRITE;
+    &#125;
+    if (!av) &#123;
+        /*
+        * Special file opened with flags 3 for ioctl-only use.
+        */
+        av = FILE__IOCTL;
+    &#125;
+
+    return av;
+&#125;
 </code></pre>
 
     </div>
@@ -262,13 +306,10 @@ Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/" rel="prev" title="【Android】Refbase对象引用计数操作中的内存序">
-      <i class="fa fa-chevron-left"></i> 【Android】Refbase对象引用计数操作中的内存序
+    <a href="/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/" rel="prev" title="【ARM】adrp和adr指令详解">
+      <i class="fa fa-chevron-left"></i> 【ARM】adrp和adr指令详解
     </a></div>
-      <div class="post-nav-item">
-    <a href="/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/" rel="next" title="【ARM】adrp和adr指令详解">
-      【ARM】adrp和adr指令详解 <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -327,6 +368,7 @@ Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#BINDER-SET-CONTEXT-MGR%E6%9D%83%E9%99%90"><span class="nav-number">1.</span> <span class="nav-text">BINDER__SET_CONTEXT_MGR权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#BINDER-CALL-%E6%9D%83%E9%99%90"><span class="nav-number">2.</span> <span class="nav-text">BINDER__CALL 权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#BINDER-TRANSFER-%E6%9D%83%E9%99%90"><span class="nav-number">3.</span> <span class="nav-text">BINDER__TRANSFER 权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#BINDER-TRANSFER-%E6%9D%83%E9%99%90-1"><span class="nav-number">4.</span> <span class="nav-text">BINDER__TRANSFER 权限</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 

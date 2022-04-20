@@ -145,6 +145,167 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/" class="post-title-link" itemprop="url">【Android】binder中的selinux权限</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-04-20 22:19:25 / Modified: 22:31:32" itemprop="dateCreated datePublished" datetime="2022-04-20T22:19:25+08:00">2022-04-20</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <pre><code>// security/selinux/include/classmap.h
+struct security_class_mapping secclass_map[] = &#123;
+    ...
+    &#123; &quot;binder&quot;, &#123; &quot;impersonate&quot;, &quot;call&quot;, &quot;set_context_mgr&quot;, &quot;transfer&quot;, NULL &#125; &#125;,
+    ...
+&#125;
+</code></pre>
+<h1 id="BINDER-SET-CONTEXT-MGR权限"><a href="#BINDER-SET-CONTEXT-MGR权限" class="headerlink" title="BINDER__SET_CONTEXT_MGR权限"></a>BINDER__SET_CONTEXT_MGR权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_set_context_mgr(const struct cred *mgr)
+&#123;
+    return avc_has_perm(&amp;selinux_state,
+                current_sid(), cred_sid(mgr), SECCLASS_BINDER,
+                BINDER__SET_CONTEXT_MGR, NULL);
+&#125;
+</code></pre>
+<h1 id="BINDER-CALL-权限"><a href="#BINDER-CALL-权限" class="headerlink" title="BINDER__CALL 权限"></a>BINDER__CALL 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transaction(const struct cred *from,
+            	      const struct cred *to)
+&#123;
+    u32 mysid = current_sid();
+    u32 fromsid = cred_sid(from);
+    u32 tosid = cred_sid(to);
+    int rc;
+
+    if (mysid != fromsid) &#123;
+        rc = avc_has_perm(&amp;selinux_state,
+                mysid, fromsid, SECCLASS_BINDER,
+                BINDER__IMPERSONATE, NULL);
+        if (rc)
+            return rc;
+    &#125;
+
+    return avc_has_perm(&amp;selinux_state, fromsid, tosid,
+                SECCLASS_BINDER, BINDER__CALL, NULL);
+&#125;
+</code></pre>
+<h1 id="BINDER-TRANSFER-权限"><a href="#BINDER-TRANSFER-权限" class="headerlink" title="BINDER__TRANSFER 权限"></a>BINDER__TRANSFER 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transfer_binder(const struct cred *from,
+    				  const struct cred *to)
+&#123;
+    return avc_has_perm(&amp;selinux_state,
+        	    cred_sid(from), cred_sid(to),
+                SECCLASS_BINDER, BINDER__TRANSFER,
+                NULL);
+&#125;
+</code></pre>
+<h1 id="BINDER-TRANSFER-权限-1"><a href="#BINDER-TRANSFER-权限-1" class="headerlink" title="BINDER__TRANSFER 权限"></a>BINDER__TRANSFER 权限</h1><pre><code>// security/selinux/hooks.c
+static int selinux_binder_transfer_file(const struct cred *from,
+                const struct cred *to,
+                struct file *file)
+&#123;
+    u32 sid = cred_sid(to);
+    struct file_security_struct *fsec = selinux_file(file);
+    struct dentry *dentry = file-&gt;f_path.dentry;
+    struct inode_security_struct *isec;
+    struct common_audit_data ad;
+    int rc;
+
+    ad.type = LSM_AUDIT_DATA_PATH;
+    ad.u.path = file-&gt;f_path;
+
+    if (sid != fsec-&gt;sid) &#123;
+        rc = avc_has_perm(&amp;selinux_state,
+                sid, fsec-&gt;sid,
+                SECCLASS_FD,
+                FD__USE,
+                &amp;ad);
+        if (rc)
+            return rc;
+    &#125;
+
+    if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
+        return 0;
+
+    isec = backing_inode_security(dentry);
+    return avc_has_perm(&amp;selinux_state,
+                sid, isec-&gt;sid, isec-&gt;sclass, file_to_av(file),
+                &amp;ad);
+&#125;
+
+/* Convert a Linux file to an access vector. */
+static inline u32 file_to_av(struct file *file)
+&#123;
+    u32 av = 0;
+
+    if (file-&gt;f_mode &amp; FMODE_READ)
+        av |= FILE__READ;
+    if (file-&gt;f_mode &amp; FMODE_WRITE) &#123;
+        if (file-&gt;f_flags &amp; O_APPEND)
+            av |= FILE__APPEND;
+        else
+            av |= FILE__WRITE;
+    &#125;
+    if (!av) &#123;
+        /*
+        * Special file opened with flags 3 for ioctl-only use.
+        */
+        av = FILE__IOCTL;
+    &#125;
+
+    return av;
+&#125;
+</code></pre>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -651,7 +812,7 @@ int main()
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-count">4</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
