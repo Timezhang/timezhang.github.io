@@ -28,7 +28,7 @@
 <meta property="og:description" content="Android内核切换到5.10后，看到这么一个修改，说是之前的实现对与32位的安全机器来说，占用了过多的vmalloc空间，打算分析下是怎么修改的 1234567891011121314binder: create userspace-to-binder-buffer copy functionThe binder driver uses a vm_area to map the per-pro">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2022-04-24T14:00:21.000Z">
-<meta property="article:modified_time" content="2022-04-25T18:16:36.691Z">
+<meta property="article:modified_time" content="2022-04-25T18:23:13.398Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
 
@@ -180,7 +180,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-26 02:16:36" itemprop="dateModified" datetime="2022-04-26T02:16:36+08:00">2022-04-26</time>
+                <time title="Modified: 2022-04-26 02:23:13" itemprop="dateModified" datetime="2022-04-26T02:23:13+08:00">2022-04-26</time>
               </span>
 
           
@@ -198,7 +198,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">binder: create userspace-to-binder-buffer copy function</span><br><span class="line">The binder driver uses a vm_area to map the per-process</span><br><span class="line">binder buffer space. For 32-bit android devices, this is</span><br><span class="line">now taking too much vmalloc space. This patch removes</span><br><span class="line">the use of vm_area when copying the transaction data</span><br><span class="line">from the sender to the buffer space. Instead of using</span><br><span class="line">copy_from_user() for multi-page copies, it now uses</span><br><span class="line">binder_alloc_copy_user_to_buffer() which uses kmap()</span><br><span class="line">and kunmap() to map each page, and uses copy_from_user()</span><br><span class="line">for copying to that page.</span><br><span class="line"></span><br><span class="line">Signed-off-by: Todd Kjos &lt;tkjos@google.com&gt;</span><br><span class="line">Signed-off-by: Greg Kroah-Hartman &lt;gregkh@linuxfoundation.org&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <h1 id="为什么会占用vmalloc空间"><a href="#为什么会占用vmalloc空间" class="headerlink" title="为什么会占用vmalloc空间"></a>为什么会占用vmalloc空间</h1><p>binder driver为什么会占用vmalloc空间得从binder通信机制中的一次拷贝说起，对于一次拷贝的实现原理我这里写的比较粗，主要是为了说明之前的实现为什么会占用内核虚拟地址空间。详细的实现可以参考下面的这篇博客，写的很好：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://blog.csdn.net/tkwxty/article/details/112325376</span><br></pre></td></tr></table></figure>
-<h2 id="用户态进行mmap"><a href="#用户态进行mmap" class="headerlink" title="用户态进行mmap"></a>用户态进行mmap</h2><p>在用户空间，初始化ProcessState时，不仅会open &#x2F;dev&#x2F;binder，还会mmap一段用户空间虚拟地址区域(1M大小)然后进入到binder driver中的binder_mmap函数中。</p>
+<h2 id="用户态进行mmap"><a href="#用户态进行mmap" class="headerlink" title="用户态进行mmap"></a>用户态进行mmap</h2><p>在用户空间，初始化ProcessState时，不仅会open &#x2F;dev&#x2F;binder，还会mmap一段用户空间虚拟地址区域(1M大小)然后进入到binder driver中的binder_mmap函数中</p>
 <pre class="mermaid">graph TB
 A["// frameworks/native/libs/binder/ProcessState.cpp<br>ProcessState::ProcessState()"]
 B["mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0)"]
@@ -221,7 +221,10 @@ B["binder_driver"]
 C["server"]
 A--copy_from_user-->B--共享物理内存-->C</pre>
 <p>binder driver要做的事情</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1、分配一段相同大小的kernel space虚拟地址区域</span><br><span class="line">2、建立kernel space虚拟地址区域和物理内存的的映射</span><br><span class="line">3、修改用户态进程的页表，建立user space虚拟地址区域和物理内存的映射</span><br></pre></td></tr></table></figure>
+<pre><code>1、分配一段相同大小的kernel space虚拟地址区域
+2、建立kernel space虚拟地址区域和物理内存的的映射
+3、修改用户态进程的页表，建立user space虚拟地址区域和物理内存的映射
+</code></pre>
 <p>问题就出在”分配一段相同大小的kernel space虚拟地址区域”，每个用户进程使用binder首先都会分配一段1M大小的kernel space虚拟地址区域，而且直到退出才释放。在32位设备上，kernel space虚拟地址区域是要小于1G的，想对来说，binder driver占用的kernel space虚拟地址空间(也就是vmalloc空间)是很多的</p>
 <h1 id="修改方案分析"><a href="#修改方案分析" class="headerlink" title="修改方案分析"></a>修改方案分析</h1><h1 id="binder-alloc-代码分析"><a href="#binder-alloc-代码分析" class="headerlink" title="binder_alloc 代码分析"></a>binder_alloc 代码分析</h1><p>binder内存管理还是蛮有意思的，值得好好分析一把</p>
 <h2 id="主要结构体"><a href="#主要结构体" class="headerlink" title="主要结构体"></a>主要结构体</h2><p>struct binder_alloc是binder_proc的内存管理结构体，管理binder_buffer和binder_lru_page。binder_transation过程中为了保存用户态传入的数据，会根据数据大小从binder_alloc中找合适的binder_buffer分配出去，同时为该binder_buffer分配实际物理页，物理页使用binder_lru_page描述和管理。初始binder_alloc只有一个binder_buffer，表后面根据分配和释放需求对binder_buffer拆分或者合并。</p>
