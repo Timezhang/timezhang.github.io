@@ -145,7 +145,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/24/binder%20driver%E5%8D%A0%E7%94%A8%E8%BF%87%E5%A4%9Avmalloc%E7%A9%BA%E9%97%B4/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/27/test/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -159,7 +159,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2022/04/24/binder%20driver%E5%8D%A0%E7%94%A8%E8%BF%87%E5%A4%9Avmalloc%E7%A9%BA%E9%97%B4/" class="post-title-link" itemprop="url">binder driver占用过多vmalloc空间</a>
+            <a href="/2022/04/27/test/" class="post-title-link" itemprop="url">Untitled</a>
         </h2>
 
         <div class="post-meta">
@@ -168,16 +168,10 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
+              
 
-              <time title="Created: 2022-04-24 22:00:21" itemprop="dateCreated datePublished" datetime="2022-04-24T22:00:21+08:00">2022-04-24</time>
+              <time title="Created: 2022-04-27 22:28:43 / Modified: 22:29:21" itemprop="dateCreated datePublished" datetime="2022-04-27T22:28:43+08:00">2022-04-27</time>
             </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-26 02:30:03" itemprop="dateModified" datetime="2022-04-26T02:30:03+08:00">2022-04-26</time>
-              </span>
 
           
 
@@ -190,81 +184,9 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>Android内核切换到5.10后，看到这么一个修改，说是之前的实现对与32位的安全机器来说，占用了过多的vmalloc空间，打算分析下是怎么修改的</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">binder: create userspace-to-binder-buffer copy function</span><br><span class="line">The binder driver uses a vm_area to map the per-process</span><br><span class="line">binder buffer space. For 32-bit android devices, this is</span><br><span class="line">now taking too much vmalloc space. This patch removes</span><br><span class="line">the use of vm_area when copying the transaction data</span><br><span class="line">from the sender to the buffer space. Instead of using</span><br><span class="line">copy_from_user() for multi-page copies, it now uses</span><br><span class="line">binder_alloc_copy_user_to_buffer() which uses kmap()</span><br><span class="line">and kunmap() to map each page, and uses copy_from_user()</span><br><span class="line">for copying to that page.</span><br><span class="line"></span><br><span class="line">Signed-off-by: Todd Kjos &lt;tkjos@google.com&gt;</span><br><span class="line">Signed-off-by: Greg Kroah-Hartman &lt;gregkh@linuxfoundation.org&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<h1 id="为什么会占用vmalloc空间"><a href="#为什么会占用vmalloc空间" class="headerlink" title="为什么会占用vmalloc空间"></a>为什么会占用vmalloc空间</h1><p>binder driver为什么会占用vmalloc空间得从binder通信机制中的一次拷贝说起，对于一次拷贝的实现原理我这里写的比较粗，主要是为了说明之前的实现为什么会占用内核虚拟地址空间。详细的实现可以参考下面的这篇博客，写的很好：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://blog.csdn.net/tkwxty/article/details/112325376</span><br></pre></td></tr></table></figure>
-<h2 id="用户态进行mmap"><a href="#用户态进行mmap" class="headerlink" title="用户态进行mmap"></a>用户态进行mmap</h2><p>在用户空间，初始化ProcessState时，不仅会open &#x2F;dev&#x2F;binder，还会mmap一段用户空间虚拟地址区域(1M大小)然后进入到binder driver中的binder_mmap函数中</p>
-<pre class="mermaid">graph TB
-A["// frameworks/native/libs/binder/ProcessState.cpp<br>ProcessState::ProcessState()"]
-B["mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0)"]
-C["// drivers/android/binder.c<br>binder_mmap(struct file *filp, struct vm_area_struct *vma)"]
-D["// drivers/android/binder_alloc.c<br>// 初始化binder_alloc结构体<br>int binder_alloc_mmap_handler(struct binder_alloc *alloc, struct vm_area_struct *vma)"]
-A-->B-->C-->D</pre>
-<h2 id="binder-driver实现共享物理内存"><a href="#binder-driver实现共享物理内存" class="headerlink" title="binder driver实现共享物理内存"></a>binder driver实现共享物理内存</h2><p>看下linux-4.14上的实现<br><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y</a></p>
-<p>binder实现一次拷贝的核心原理就在于共享物理内存，binder driver向用户态传送数据可以直接通过共享物理内存的机制完成，而不需要通过copy_to_user函数</p>
-<pre class="mermaid">graph TB
-A["user space虚拟地址区域"]
-B["kernel space虚拟地址区域"]
-C["物理内存"]
-A--映射-->C
-B--映射-->C
-A--固定offset---B</pre>
-
-<pre class="mermaid">graph LR
-A["client"]
-B["binder_driver"]
-C["server"]
-A--copy_from_user-->B--共享物理内存-->C</pre>
-<p>binder driver要做的事情</p>
-<pre><code>1、分配一段相同大小的kernel space虚拟地址区域
-2、建立kernel space虚拟地址区域和物理内存的的映射
-3、修改用户态进程的页表，建立user space虚拟地址区域和物理内存的映射
-</code></pre>
-<p>问题就出在”分配一段相同大小的kernel space虚拟地址区域”，每个用户进程使用binder首先都会分配一段1M大小的kernel space虚拟地址区域，而且直到退出才释放。在32位设备上，kernel space虚拟地址区域是要小于1G的，想对来说，binder driver占用的kernel space虚拟地址空间(也就是vmalloc空间)是很多的</p>
-<h1 id="修改方案分析"><a href="#修改方案分析" class="headerlink" title="修改方案分析"></a>修改方案分析</h1><p>kerel5.10上的修改链接<br><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/drivers/android?h=linux-5.10.y&amp;id=1a7c3d9bb7a926e88d5f57643e75ad1abfc55013">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/drivers/android?h=linux-5.10.y&amp;id=1a7c3d9bb7a926e88d5f57643e75ad1abfc55013</a></p>
-<h1 id="附录-binder-alloc中的主要结构体"><a href="#附录-binder-alloc中的主要结构体" class="headerlink" title="附录 binder_alloc中的主要结构体"></a>附录 binder_alloc中的主要结构体</h1><p>struct binder_alloc是binder_proc的内存管理结构体，管理binder_buffer和binder_lru_page。binder_transation过程中为了保存用户态传入的数据，会根据数据大小从binder_alloc中找合适的binder_buffer分配出去，同时为该binder_buffer分配实际物理页，物理页使用binder_lru_page描述和管理。初始binder_alloc只有一个binder_buffer，表后面根据分配和释放需求对binder_buffer拆分或者合并。</p>
-<pre class="mermaid">classDiagram
-class binder_alloc {
-    struct vm_area_struct *vma
-    struct mm_struct *vma_vm_mm
-    void *buffer // 指向vma->start
-    size_t buffer_size // vma大小
-    struct list_head buffers
-    struct rb_root free_buffers
-    struct rb_root allocated_buffers
-    struct binder_lru_page *pages
-
-    int binder_alloc_mmap_handler(struct binder_alloc *alloc, ...)
-    struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc, ...)
-    void binder_alloc_free_buf(struct binder_alloc *alloc, ...)
-}
-
-class binder_buffer {
-    struct list_head entry
-    struct rb_node rb_node; 
-    unsigned free:1;
-    struct binder_transaction *transaction;
-    struct binder_node *target_node;
-    size_t data_size;
-    size_t offsets_size;
-    size_t extra_buffers_size;
-    void *data;
-}
-
-class binder_lru_page {
-    struct list_head lru
-    struct page *page_ptr
-    struct binder_alloc *alloc
-}
-
-class binder_proc {
-    struct binder_alloc
-}
-
-binder_alloc-->binder_buffer
-binder_alloc-->binder_lru_page
-binder_proc*--binder_alloc</pre>
+          <pre class="mermaid">graph TB
+    c1[123]
+​</pre>
       
     </div>
 
