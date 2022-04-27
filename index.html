@@ -145,6 +145,176 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/" class="post-title-link" itemprop="url">binder一次拷贝的实现在5.10内核上的变化</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2022-04-24 22:00:21" itemprop="dateCreated datePublished" datetime="2022-04-24T22:00:21+08:00">2022-04-24</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-04-28 01:36:14" itemprop="dateModified" datetime="2022-04-28T01:36:14+08:00">2022-04-28</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>在5.10内核中，看到这么一个修改，说是之前的实现对与32位的安全机器来说，占用了过多的vmalloc空间，不再使用vm_area，那这个修改必然影响到一次拷贝的实现，所以打算对比4.14内核分析下变化的点</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">binder: create userspace-to-binder-buffer copy function</span><br><span class="line">The binder driver uses a vm_area to map the per-process</span><br><span class="line">binder buffer space. For 32-bit android devices, this is</span><br><span class="line">now taking too much vmalloc space. This patch removes</span><br><span class="line">the use of vm_area when copying the transaction data</span><br><span class="line">from the sender to the buffer space. Instead of using</span><br><span class="line">copy_from_user() for multi-page copies, it now uses</span><br><span class="line">binder_alloc_copy_user_to_buffer() which uses kmap()</span><br><span class="line">and kunmap() to map each page, and uses copy_from_user()</span><br><span class="line">for copying to that page.</span><br><span class="line"></span><br><span class="line">Signed-off-by: Todd Kjos &lt;tkjos@google.com&gt;</span><br><span class="line">Signed-off-by: Greg Kroah-Hartman &lt;gregkh@linuxfoundation.org&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h1 id="一次拷贝的实现"><a href="#一次拷贝的实现" class="headerlink" title="一次拷贝的实现"></a>一次拷贝的实现</h1><p>这篇博客主要是为了分析一次拷贝的实现从4.14到5.10内核发生了什么变化。关于一次拷贝详细的内容可以参考下面的这篇博客，写的很好：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://blog.csdn.net/tkwxty/article/details/112325376</span><br></pre></td></tr></table></figure>
+<h2 id="用户态"><a href="#用户态" class="headerlink" title="用户态"></a>用户态</h2><p>在用户态，初始化ProcessState时，不仅会open &#x2F;dev&#x2F;binder，还会mmap一段user space空间虚拟地址区域(1M大小，后面统一称为vma)然后进入到binder driver中的binder_mmap函数中，流程如下：</p>
+<pre class="mermaid">graph TB
+A["// frameworks/native/libs/binder/ProcessState.cpp<br>ProcessState::ProcessState()"]
+B["mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0)"]
+C["// drivers/android/binder.c<br>binder_mmap(struct file *filp, struct vm_area_struct *vma)"]
+D["// drivers/android/binder_alloc.c<br>// 初始化binder_alloc结构体<br>int binder_alloc_mmap_handler(struct binder_alloc *alloc, struct vm_area_struct *vma)"]
+A-->B-->C-->D</pre>
+<h1 id="binder-driver"><a href="#binder-driver" class="headerlink" title="binder driver"></a>binder driver</h1><h2 id="linux-4-14上的实现"><a href="#linux-4-14上的实现" class="headerlink" title="linux-4.14上的实现"></a>linux-4.14上的实现</h2><p><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y</a></p>
+<h3 id="主要结构体"><a href="#主要结构体" class="headerlink" title="主要结构体"></a>主要结构体</h3><p>struct binder_alloc是binder_proc的内存管理结构体，管理binder_buffer和binder_lru_page。binder_transation过程中为了保存用户态传入的数据，会根据数据大小从binder_alloc中找合适的binder_buffer分配出去，同时为该binder_buffer分配实际物理页，物理页使用binder_lru_page描述和管理。初始binder_alloc只有一个binder_buffer，表后面根据分配和释放需求对binder_buffer拆分或者合并。</p>
+<pre class="mermaid">classDiagram
+class binder_alloc {
+    struct vm_area_struct *vma
+    struct mm_struct *vma_vm_mm
+    void *buffer
+    size_t buffer_size
+    ptrdiff_t user_buffer_offset
+    struct list_head buffers
+    struct rb_root free_buffers
+    struct rb_root allocated_buffers
+    struct binder_lru_page *pages
+    int binder_alloc_mmap_handler(struct binder_alloc *alloc, ...)
+    struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc, ...)
+    void binder_alloc_free_buf(struct binder_alloc *alloc, ...)
+}
+
+class binder_buffer {
+    struct list_head entry
+    struct rb_node rb_node
+    unsigned free:1
+    struct binder_transaction *transaction
+    struct binder_node *target_node
+    size_t data_size
+    size_t offsets_size
+    size_t extra_buffers_size
+    void *data
+}
+
+class binder_lru_page {
+    struct list_head lru
+    struct page *page_ptr
+    struct binder_alloc *alloc
+}
+
+class binder_proc {
+    struct binder_alloc
+}
+
+binder_alloc-->binder_buffer
+binder_alloc-->binder_lru_page
+binder_proc*--binder_alloc</pre>
+<h3 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h3><p>binder实现一次拷贝的核心原理就在于共享物理内存，binder driver向用户态传送数据可以直接通过共享物理内存的机制完成，而不需要通过copy_to_user函数。binder driver主要做的事情:</p>
+<pre><code>1、分配一段相同大小的kernel space虚拟地址区域(后面统称为vm)并计算vm和vma之间的offset
+2、分配物理内存并建立vm和物理内存之间的的映射
+3、修改用户态进程的页表，建立vma和物理内存的映射
+4、使用copy_from_user将binder transcation data拷贝到vm中的某个地址addr
+5、将addr + offset返回给service，service在用户态直接去addr + offset这个地址取binder transcation data就可以了
+</code></pre>
+<pre class="mermaid">graph TB
+    subgraph service
+    A[user space虚拟地址区域 vma]
+    end
+    subgraph binder driver
+    B[kernel space虚拟地址区域 vm]
+    end
+    subgraph client
+    D[binder transaction data]
+    end
+    C[物理内存]
+
+    A--映射-->C
+    B--映射-->C
+    A--固定offset---B
+    D--copy_from_user-->B</pre>
+<p>binder driver分配vm是在binder_alloc_mmap_handler函数中做的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">int binder_alloc_mmap_handler(struct binder_alloc *alloc,</span><br><span class="line">			      struct vm_area_struct *vma)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct vm_struct *area;</span><br><span class="line">	// 分配vm</span><br><span class="line">	area = get_vm_area(vma-&gt;vm_end - vma-&gt;vm_start, VM_ALLOC);</span><br><span class="line">	if (area == NULL) &#123;</span><br><span class="line">		...</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	alloc-&gt;buffer = area-&gt;addr;</span><br><span class="line">	//计算vma和vm之间的offset</span><br><span class="line">	alloc-&gt;user_buffer_offset =</span><br><span class="line">		vma-&gt;vm_start - (uintptr_t)alloc-&gt;buffer;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>binder_driver在binder_transaction函数中将client的binder transaction data使用copy_from_user拷贝到内核中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">static void binder_transaction(struct binder_proc *proc,struct binder_transaction_data *tr, ...)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct binder_transaction *t;</span><br><span class="line">	// 分配binder_buffer(指向内核虚拟地址)</span><br><span class="line">	t-&gt;buffer = binder_alloc_new_buf(&amp;target_proc-&gt;alloc, tr-&gt;data_size, ...);</span><br><span class="line">	// 拷贝用户态数据</span><br><span class="line">	if (copy_from_user(t-&gt;buffer-&gt;data, (const void __user *)(uintptr_t)tr-&gt;data .ptr.buffer, tr-&gt;data_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	if (copy_from_user(offp, (const void __user *)(uintptr_t)tr-&gt;data.ptr.offsets, tr-&gt;offsets_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>每个用户进程使用binder首先都会分配这么一段1M大小vm，而且直到退出才释放。在32位设备上，kernel space虚拟地址区域是要小于1G的，相对来说，binder driver占用的kernel space虚拟地址是很多的</p>
+<h2 id="linux-5-10上的变化"><a href="#linux-5-10上的变化" class="headerlink" title="linux-5.10上的变化"></a>linux-5.10上的变化</h2><p><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-5.10.y">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-5.10.y</a></p>
+<pre class="mermaid">graph TB
+    subgraph service
+    A[user space虚拟地址区域 vma]
+    end
+    subgraph binder driver
+    B["动态kmap区域 (一页大小)"]
+    end
+    subgraph client
+    D[binder_transaction_data]
+    end
+    C[物理内存]
+
+    A--->C
+    B-->C
+    D--binder_alloc_copy_user_to_buffer 循环按页拷贝-->B</pre>
+
+<p>在5.10上，binder driver的变化：<br><br>1）binder_alloc_mmap_handler函数中不再分配一整块(1M大小)的内核虚拟地址区域<br><br>2）binder_buffer中指向的不再是kernel虚拟地址，而直接是user space虚拟地址，binder_buffer和物理内存之间按页匹配，这个很巧妙。binder_alloc中用pages数组记录分配的每个物理页，比如为vma的第一个4K区间分配的物理页的物理地址就记录在pages[0]中，这样就建立了vma各个4K区间和物理页的直接匹配。在函数binder_alloc_get_page中，根据binder_buffer指向的虚拟地址到alloc-&gt;buffer(binder_alloc记录的vma的起始地址)的offset计算出index，就能在pages数组中找到匹配的物理页的物理地址。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">static struct page *binder_alloc_get_page(struct binder_alloc *alloc, struct binder_buffer *buffer, binder_size_t buffer_offset, pgoff_t *pgoffp)</span><br><span class="line">&#123;</span><br><span class="line">	// 计算index</span><br><span class="line">	binder_size_t buffer_space_offset = buffer_offset + (buffer-&gt;user_data - alloc-&gt;buffer);</span><br><span class="line">	pgoff_t pgoff = buffer_space_offset &amp; ~PAGE_MASK;</span><br><span class="line">	size_t index = buffer_space_offset &gt;&gt; PAGE_SHIFT;</span><br><span class="line">	struct binder_lru_page *lru_page;</span><br><span class="line"></span><br><span class="line">	lru_page = &amp;alloc-&gt;pages[index];</span><br><span class="line">	*pgoffp = pgoff;</span><br><span class="line">	// page_ptr是物理地址</span><br><span class="line">	return lru_page-&gt;page_ptr;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><br>3）在binder_transaction函数中使用binder_alloc_copy_user_to_buffer拷贝binder_transaction_data。在binder_alloc_copy_user_to_buffer中，调用binder_alloc_get_page先找到binder_buffer对应的第一个物理页的物理地址，使用kmap映射一页大小的kernel space虚拟地址区域，然后使用copy_from_user拷贝用户态数据(写入物理页)，接着调用kunmap释放映射的这一页kernel space虚拟地址区域，后面继续循环，直到拷贝完所有的用户态数据。这样做拷贝用户数据过程中也就只占用一页的kernel space虚拟地址区域。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">static void binder_transaction(struct binder_proc *proc,struct binder_transaction_data *tr, ...)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct binder_transaction *t;</span><br><span class="line">	// 分配binder_buffer(指向用户虚拟地址)</span><br><span class="line">	t-&gt;buffer = binder_alloc_new_buf(&amp;target_proc-&gt;alloc, tr-&gt;data_size, ...);</span><br><span class="line">	// 拷贝用户态数据</span><br><span class="line">	if (binder_alloc_copy_user_to_buffer(&amp;target_proc-&gt;alloc, t-&gt;buffer, 0, (const void __user *)(uintptr_t)tr-&gt;data.ptr.buffer, tr-&gt;data_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	if (binder_alloc_copy_user_to_buffer(&amp;target_proc-&gt;alloc, t-&gt;buffer, ALIGN(tr-&gt;data_size, sizeof(void *)), (const void __user *)(uintptr_t)tr-&gt;data.ptr.offsets, tr-&gt;offsets_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">unsigned long binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc, struct binder_buffer *buffer, binder_size_t buffer_offset, const void __user *from, size_t bytes)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	while (bytes) &#123;</span><br><span class="line">		unsigned long size;</span><br><span class="line">		unsigned long ret;</span><br><span class="line">		struct page *page;</span><br><span class="line">		// buffer-&gt;user_data如果不是页对齐，就需要计算gpoff匹配到物理页的中间</span><br><span class="line">		pgoff_t pgoff;</span><br><span class="line">		void *kptr;</span><br><span class="line"></span><br><span class="line">		page = binder_alloc_get_page(alloc, buffer,</span><br><span class="line">					     buffer_offset, &amp;pgoff);</span><br><span class="line">		size = min_t(size_t, bytes, PAGE_SIZE - pgoff);</span><br><span class="line">		// kmap映射</span><br><span class="line">		kptr = kmap(page) + pgoff;</span><br><span class="line">		ret = copy_from_user(kptr, from, size);</span><br><span class="line">		// kunmap释放</span><br><span class="line">		kunmap(page);</span><br><span class="line">		if (ret)</span><br><span class="line">			return bytes - size + ret;</span><br><span class="line">		bytes -= size;</span><br><span class="line">		from += size;</span><br><span class="line">		buffer_offset += size;</span><br><span class="line">	&#125;</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/20/%E3%80%90Android%E3%80%91binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -812,7 +982,7 @@ int main()
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-count">5</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
