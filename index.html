@@ -176,7 +176,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-28 01:36:14" itemprop="dateModified" datetime="2022-04-28T01:36:14+08:00">2022-04-28</time>
+                <time title="Modified: 2022-04-28 22:05:28" itemprop="dateModified" datetime="2022-04-28T22:05:28+08:00">2022-04-28</time>
               </span>
 
           
@@ -288,7 +288,7 @@ binder_proc*--binder_alloc</pre>
 
     A--->C
     B-->C
-    D--binder_alloc_copy_user_to_buffer 循环按页拷贝-->B</pre>
+    D--copy_from_user 循环按页拷贝-->B</pre>
 
 <p>在5.10上，binder driver的变化：<br><br>1）binder_alloc_mmap_handler函数中不再分配一整块(1M大小)的内核虚拟地址区域<br><br>2）binder_buffer中指向的不再是kernel虚拟地址，而直接是user space虚拟地址，binder_buffer和物理内存之间按页匹配，这个很巧妙。binder_alloc中用pages数组记录分配的每个物理页，比如为vma的第一个4K区间分配的物理页的物理地址就记录在pages[0]中，这样就建立了vma各个4K区间和物理页的直接匹配。在函数binder_alloc_get_page中，根据binder_buffer指向的虚拟地址到alloc-&gt;buffer(binder_alloc记录的vma的起始地址)的offset计算出index，就能在pages数组中找到匹配的物理页的物理地址。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">static struct page *binder_alloc_get_page(struct binder_alloc *alloc, struct binder_buffer *buffer, binder_size_t buffer_offset, pgoff_t *pgoffp)</span><br><span class="line">&#123;</span><br><span class="line">	// 计算index</span><br><span class="line">	binder_size_t buffer_space_offset = buffer_offset + (buffer-&gt;user_data - alloc-&gt;buffer);</span><br><span class="line">	pgoff_t pgoff = buffer_space_offset &amp; ~PAGE_MASK;</span><br><span class="line">	size_t index = buffer_space_offset &gt;&gt; PAGE_SHIFT;</span><br><span class="line">	struct binder_lru_page *lru_page;</span><br><span class="line"></span><br><span class="line">	lru_page = &amp;alloc-&gt;pages[index];</span><br><span class="line">	*pgoffp = pgoff;</span><br><span class="line">	// page_ptr是物理地址</span><br><span class="line">	return lru_page-&gt;page_ptr;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
