@@ -155,6 +155,194 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/05/08/%E8%AE%BE%E7%BD%AE%E8%BF%9B%E7%A8%8Bselinux%E5%9F%9F%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E6%B3%95%E5%92%8C%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/05/08/%E8%AE%BE%E7%BD%AE%E8%BF%9B%E7%A8%8Bselinux%E5%9F%9F%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E6%B3%95%E5%92%8C%E5%8E%9F%E7%90%86/" class="post-title-link" itemprop="url">设置进程selinux域的几种方法和原理</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-05-08 22:51:33 / Modified: 23:48:10" itemprop="dateCreated datePublished" datetime="2022-05-08T22:51:33+08:00">2022-05-08</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="init进程的selinux域"><a href="#init进程的selinux域" class="headerlink" title="init进程的selinux域"></a>init进程的selinux域</h1><p>init的selinux策略配置如下，定义了init域(domain)和init_exec标签，并加了neverallow来保证只有init进程的selinux域为init:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># sepolicy/public/init.te</span><br><span class="line"># init is its own domain.</span><br><span class="line"># 定义init进程的selinux域 ：init</span><br><span class="line">type init, domain, mlstrustedsubject;</span><br><span class="line"># 定义init可执行文件的selinux标签：init_exec</span><br><span class="line">type init_exec, system_file_type, exec_type, file_type;</span><br><span class="line"></span><br><span class="line"># The init domain is only entered via an exec based transition from the</span><br><span class="line"># kernel domain, never via setcon().</span><br><span class="line"># 不允许任何进程将自己的selinux域通过setcon动态转换为init</span><br><span class="line">neverallow domain init:process dyntransition;</span><br><span class="line"># 只允许从kernel域转换成init</span><br><span class="line">neverallow &#123; domain -kernel &#125; init:process transition;</span><br><span class="line"># 只允许selinux标签为init_exec的可执行文件执行起来后的进程的selinux域为init</span><br><span class="line">neverallow init &#123; file_type fs_type -init_exec &#125;:file entrypoint;</span><br></pre></td></tr></table></figure>
+<p>init在first stage时的selinux域为kernel，之后执行SetupSelinux加载selinux策略，并将自己的selinux域设置成init</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">int SetupSelinux(char** argv) &#123;</span><br><span class="line">    ...</span><br><span class="line">    // Set up SELinux, loading the SELinux policy.</span><br><span class="line">    // 加载selinux策略到内核</span><br><span class="line">    SelinuxSetupKernelLogging();</span><br><span class="line">    SelinuxInitialize();</span><br><span class="line"></span><br><span class="line">    // We&#x27;re in the kernel domain and want to transition to the init domain.  File systems that</span><br><span class="line">    // store SELabels in their xattrs, such as ext4 do not need an explicit restorecon here,</span><br><span class="line">    // but other file systems do.  In particular, this is needed for ramdisks such as the</span><br><span class="line">    // recovery image for A/B devices.</span><br><span class="line">    if (selinux_android_restorecon(&quot;/system/bin/init&quot;, 0) == -1) &#123;</span><br><span class="line">        PLOG(FATAL) &lt;&lt; &quot;restorecon failed of /system/bin/init failed&quot;;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);</span><br><span class="line">    // init 所谓的second stage就是从这里开始的</span><br><span class="line">    const char* path = &quot;/system/bin/init&quot;;</span><br><span class="line">    const char* args[] = &#123;path, &quot;second_stage&quot;, nullptr&#125;;</span><br><span class="line">    execv(path, const_cast&lt;char**&gt;(args));</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>&#x2F;* fs&#x2F;exec.c</p>
+<ul>
+<li>sys_execve() executes a new program.</li>
+</ul>
+<p> *&#x2F;<br>static int bprm_execve(struct linux_binprm *bprm,<br>               int fd, struct filename *filename, int flags)<br>{<br>    …<br>    &#x2F;&#x2F; 准备cred<br>    retval &#x3D; prepare_bprm_creds(bprm);<br>    if (retval)<br>        goto out_files;</p>
+<pre><code>/* Set the unchanging part of bprm-&gt;cred */
+retval = security_bprm_creds_for_exec(bprm);
+if (retval)
+    goto out;
+
+retval = exec_binprm(bprm);
+if (retval &lt; 0)
+    goto out;
+...
+</code></pre>
+<p>}</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+<p>static int selinux_bprm_creds_for_exec(struct linux_binprm *bprm)<br>{<br>    const struct task_security_struct *old_tsec;<br>    struct task_security_struct *new_tsec;<br>    struct inode_security_struct *isec;<br>    struct common_audit_data ad;<br>    struct inode *inode &#x3D; file_inode(bprm-&gt;file);<br>    int rc;</p>
+<pre><code>/* SELinux context only depends on initial program or script and not
+ * the script interpreter */
+
+old_tsec = selinux_cred(current_cred());
+new_tsec = selinux_cred(bprm-&gt;cred);
+isec = inode_security(inode);
+
+/* Default to the current task SID. */
+new_tsec-&gt;sid = old_tsec-&gt;sid;
+new_tsec-&gt;osid = old_tsec-&gt;sid;
+
+/* Reset fs, key, and sock SIDs on execve. */
+new_tsec-&gt;create_sid = 0;
+new_tsec-&gt;keycreate_sid = 0;
+new_tsec-&gt;sockcreate_sid = 0;
+
+if (old_tsec-&gt;exec_sid) &#123;
+    new_tsec-&gt;sid = old_tsec-&gt;exec_sid;
+    /* Reset exec SID on execve. */
+    new_tsec-&gt;exec_sid = 0;
+
+    /* Fail on NNP or nosuid if not an allowed transition. */
+    rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+    if (rc)
+        return rc;
+&#125; else &#123;
+    /* Check for a default transition on this program. */
+    rc = security_transition_sid(&amp;selinux_state, old_tsec-&gt;sid,
+                     isec-&gt;sid, SECCLASS_PROCESS, NULL,
+                     &amp;new_tsec-&gt;sid);
+    if (rc)
+        return rc;
+
+    /*
+     * Fallback to old SID on NNP or nosuid if not an allowed
+     * transition.
+     */
+    rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+    if (rc)
+        new_tsec-&gt;sid = old_tsec-&gt;sid;
+&#125;
+
+ad.type = LSM_AUDIT_DATA_FILE;
+ad.u.file = bprm-&gt;file;
+
+if (new_tsec-&gt;sid == old_tsec-&gt;sid) &#123;
+    rc = avc_has_perm(&amp;selinux_state,
+              old_tsec-&gt;sid, isec-&gt;sid,
+              SECCLASS_FILE, FILE__EXECUTE_NO_TRANS, &amp;ad);
+    if (rc)
+        return rc;
+&#125; else &#123;
+    /* Check permissions for the transition. */
+    rc = avc_has_perm(&amp;selinux_state,
+              old_tsec-&gt;sid, new_tsec-&gt;sid,
+              SECCLASS_PROCESS, PROCESS__TRANSITION, &amp;ad);
+    if (rc)
+        return rc;
+
+    rc = avc_has_perm(&amp;selinux_state,
+              new_tsec-&gt;sid, isec-&gt;sid,
+              SECCLASS_FILE, FILE__ENTRYPOINT, &amp;ad);
+    if (rc)
+        return rc;
+
+    /* Check for shared state */
+    if (bprm-&gt;unsafe &amp; LSM_UNSAFE_SHARE) &#123;
+        rc = avc_has_perm(&amp;selinux_state,
+                  old_tsec-&gt;sid, new_tsec-&gt;sid,
+                  SECCLASS_PROCESS, PROCESS__SHARE,
+                  NULL);
+        if (rc)
+            return -EPERM;
+    &#125;
+
+    /* Make sure that anyone attempting to ptrace over a task that
+     * changes its SID has the appropriate permit */
+    if (bprm-&gt;unsafe &amp; LSM_UNSAFE_PTRACE) &#123;
+        u32 ptsid = ptrace_parent_sid();
+        if (ptsid != 0) &#123;
+            rc = avc_has_perm(&amp;selinux_state,
+                      ptsid, new_tsec-&gt;sid,
+                      SECCLASS_PROCESS,
+                      PROCESS__PTRACE, NULL);
+            if (rc)
+                return -EPERM;
+        &#125;
+    &#125;
+
+    /* Clear any possibly unsafe personality bits on exec: */
+    bprm-&gt;per_clear |= PER_CLEAR_ON_SETID;
+
+    /* Enable secure mode for SIDs transitions unless
+       the noatsecure permission is granted between
+       the two SIDs, i.e. ahp returns 0. */
+    rc = avc_has_perm(&amp;selinux_state,
+              old_tsec-&gt;sid, new_tsec-&gt;sid,
+              SECCLASS_PROCESS, PROCESS__NOATSECURE,
+              NULL);
+    bprm-&gt;secureexec |= !!rc;
+&#125;
+
+return 0;
+</code></pre>
+<p>}</p>
+<pre><code>
+</code></pre>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1018,7 +1206,7 @@ int main()
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-count">6</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
