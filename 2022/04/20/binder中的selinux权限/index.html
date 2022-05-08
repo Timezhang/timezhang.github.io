@@ -20,28 +20,32 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Hexo">
-<meta property="og:url" content="http://example.com/index.html">
+  <meta name="description" content="基于http:&#x2F;&#x2F;aospxref.com&#x2F;android-11.0.0_r21&#x2F; 权限配置重要的宏binder相关的selinux宏定义在system&#x2F;sepolicy&#x2F;public&#x2F;te_macros中 binder_service使用typeattribute把某个service的域(domain)标记成一个binder service域，在定义binder s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="binder中的selinux权限">
+<meta property="og:url" content="http://example.com/2022/04/20/binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/index.html">
 <meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="基于http:&#x2F;&#x2F;aospxref.com&#x2F;android-11.0.0_r21&#x2F; 权限配置重要的宏binder相关的selinux宏定义在system&#x2F;sepolicy&#x2F;public&#x2F;te_macros中 binder_service使用typeattribute把某个service的域(domain)标记成一个binder service域，在定义binder s">
 <meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-04-20T14:19:25.000Z">
+<meta property="article:modified_time" content="2022-05-08T14:44:00.103Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://example.com/">
+<link rel="canonical" href="http://example.com/2022/04/20/binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'en'
   };
 </script>
 
-  <title>Hexo</title>
+  <title>binder中的selinux权限 | Hexo</title>
   
 
 
@@ -149,179 +153,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="John Doe">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hexo">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/" class="post-title-link" itemprop="url">binder一次拷贝的实现在5.10内核上的变化</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2022-04-24 22:00:21" itemprop="dateCreated datePublished" datetime="2022-04-24T22:00:21+08:00">2022-04-24</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-28 22:05:28" itemprop="dateModified" datetime="2022-04-28T22:05:28+08:00">2022-04-28</time>
-              </span>
-
-          
-
-        </div>
-      </header>
 
     
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在5.10内核中，看到这么一个修改，说是之前的实现对与32位的安全机器来说，占用了过多的vmalloc空间，不再使用vm_area，那这个修改必然影响到一次拷贝的实现，所以打算对比4.14内核分析下变化的点</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">binder: create userspace-to-binder-buffer copy function</span><br><span class="line">The binder driver uses a vm_area to map the per-process</span><br><span class="line">binder buffer space. For 32-bit android devices, this is</span><br><span class="line">now taking too much vmalloc space. This patch removes</span><br><span class="line">the use of vm_area when copying the transaction data</span><br><span class="line">from the sender to the buffer space. Instead of using</span><br><span class="line">copy_from_user() for multi-page copies, it now uses</span><br><span class="line">binder_alloc_copy_user_to_buffer() which uses kmap()</span><br><span class="line">and kunmap() to map each page, and uses copy_from_user()</span><br><span class="line">for copying to that page.</span><br><span class="line"></span><br><span class="line">Signed-off-by: Todd Kjos &lt;tkjos@google.com&gt;</span><br><span class="line">Signed-off-by: Greg Kroah-Hartman &lt;gregkh@linuxfoundation.org&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<h1 id="一次拷贝的实现"><a href="#一次拷贝的实现" class="headerlink" title="一次拷贝的实现"></a>一次拷贝的实现</h1><p>这篇博客主要是为了分析一次拷贝的实现从4.14到5.10内核发生了什么变化。关于一次拷贝详细的内容可以参考下面的这篇博客，写的很好：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://blog.csdn.net/tkwxty/article/details/112325376</span><br></pre></td></tr></table></figure>
-<h2 id="用户态"><a href="#用户态" class="headerlink" title="用户态"></a>用户态</h2><p>在用户态，初始化ProcessState时，不仅会open &#x2F;dev&#x2F;binder，还会mmap一段user space空间虚拟地址区域(1M大小，后面统一称为vma)然后进入到binder driver中的binder_mmap函数中，流程如下：</p>
-<pre class="mermaid">graph TB
-A["// frameworks/native/libs/binder/ProcessState.cpp<br>ProcessState::ProcessState()"]
-B["mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0)"]
-C["// drivers/android/binder.c<br>binder_mmap(struct file *filp, struct vm_area_struct *vma)"]
-D["// drivers/android/binder_alloc.c<br>// 初始化binder_alloc结构体<br>int binder_alloc_mmap_handler(struct binder_alloc *alloc, struct vm_area_struct *vma)"]
-A-->B-->C-->D</pre>
-<h1 id="binder-driver"><a href="#binder-driver" class="headerlink" title="binder driver"></a>binder driver</h1><h2 id="linux-4-14上的实现"><a href="#linux-4-14上的实现" class="headerlink" title="linux-4.14上的实现"></a>linux-4.14上的实现</h2><p><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-4.14.y</a></p>
-<h3 id="主要结构体"><a href="#主要结构体" class="headerlink" title="主要结构体"></a>主要结构体</h3><p>struct binder_alloc是binder_proc的内存管理结构体，管理binder_buffer和binder_lru_page。binder_transation过程中为了保存用户态传入的数据，会根据数据大小从binder_alloc中找合适的binder_buffer分配出去，同时为该binder_buffer分配实际物理页，物理页使用binder_lru_page描述和管理。初始binder_alloc只有一个binder_buffer，表后面根据分配和释放需求对binder_buffer拆分或者合并。</p>
-<pre class="mermaid">classDiagram
-class binder_alloc {
-    struct vm_area_struct *vma
-    struct mm_struct *vma_vm_mm
-    void *buffer
-    size_t buffer_size
-    ptrdiff_t user_buffer_offset
-    struct list_head buffers
-    struct rb_root free_buffers
-    struct rb_root allocated_buffers
-    struct binder_lru_page *pages
-    int binder_alloc_mmap_handler(struct binder_alloc *alloc, ...)
-    struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc, ...)
-    void binder_alloc_free_buf(struct binder_alloc *alloc, ...)
-}
-
-class binder_buffer {
-    struct list_head entry
-    struct rb_node rb_node
-    unsigned free:1
-    struct binder_transaction *transaction
-    struct binder_node *target_node
-    size_t data_size
-    size_t offsets_size
-    size_t extra_buffers_size
-    void *data
-}
-
-class binder_lru_page {
-    struct list_head lru
-    struct page *page_ptr
-    struct binder_alloc *alloc
-}
-
-class binder_proc {
-    struct binder_alloc
-}
-
-binder_alloc-->binder_buffer
-binder_alloc-->binder_lru_page
-binder_proc*--binder_alloc</pre>
-<h3 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h3><p>binder实现一次拷贝的核心原理就在于共享物理内存，binder driver向用户态传送数据可以直接通过共享物理内存的机制完成，而不需要通过copy_to_user函数。binder driver主要做的事情:</p>
-<pre><code>1、分配一段相同大小的kernel space虚拟地址区域(后面统称为vm)并计算vm和vma之间的offset
-2、分配物理内存并建立vm和物理内存之间的的映射
-3、修改用户态进程的页表，建立vma和物理内存的映射
-4、使用copy_from_user将binder transcation data拷贝到vm中的某个地址addr
-5、将addr + offset返回给service，service在用户态直接去addr + offset这个地址取binder transcation data就可以了
-</code></pre>
-<pre class="mermaid">graph TB
-    subgraph service
-    A[user space虚拟地址区域 vma]
-    end
-    subgraph binder driver
-    B[kernel space虚拟地址区域 vm]
-    end
-    subgraph client
-    D[binder transaction data]
-    end
-    C[物理内存]
-
-    A--映射-->C
-    B--映射-->C
-    A--固定offset---B
-    D--copy_from_user-->B</pre>
-<p>binder driver分配vm是在binder_alloc_mmap_handler函数中做的</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">int binder_alloc_mmap_handler(struct binder_alloc *alloc,</span><br><span class="line">			      struct vm_area_struct *vma)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct vm_struct *area;</span><br><span class="line">	// 分配vm</span><br><span class="line">	area = get_vm_area(vma-&gt;vm_end - vma-&gt;vm_start, VM_ALLOC);</span><br><span class="line">	if (area == NULL) &#123;</span><br><span class="line">		...</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	alloc-&gt;buffer = area-&gt;addr;</span><br><span class="line">	//计算vma和vm之间的offset</span><br><span class="line">	alloc-&gt;user_buffer_offset =</span><br><span class="line">		vma-&gt;vm_start - (uintptr_t)alloc-&gt;buffer;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<p>binder_driver在binder_transaction函数中将client的binder transaction data使用copy_from_user拷贝到内核中</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">static void binder_transaction(struct binder_proc *proc,struct binder_transaction_data *tr, ...)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct binder_transaction *t;</span><br><span class="line">	// 分配binder_buffer(指向内核虚拟地址)</span><br><span class="line">	t-&gt;buffer = binder_alloc_new_buf(&amp;target_proc-&gt;alloc, tr-&gt;data_size, ...);</span><br><span class="line">	// 拷贝用户态数据</span><br><span class="line">	if (copy_from_user(t-&gt;buffer-&gt;data, (const void __user *)(uintptr_t)tr-&gt;data .ptr.buffer, tr-&gt;data_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	if (copy_from_user(offp, (const void __user *)(uintptr_t)tr-&gt;data.ptr.offsets, tr-&gt;offsets_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>每个用户进程使用binder首先都会分配这么一段1M大小vm，而且直到退出才释放。在32位设备上，kernel space虚拟地址区域是要小于1G的，相对来说，binder driver占用的kernel space虚拟地址是很多的</p>
-<h2 id="linux-5-10上的变化"><a href="#linux-5-10上的变化" class="headerlink" title="linux-5.10上的变化"></a>linux-5.10上的变化</h2><p><a href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-5.10.y">https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/android?h=linux-5.10.y</a></p>
-<pre class="mermaid">graph TB
-    subgraph service
-    A[user space虚拟地址区域 vma]
-    end
-    subgraph binder driver
-    B["动态kmap区域 (一页大小)"]
-    end
-    subgraph client
-    D[binder_transaction_data]
-    end
-    C[物理内存]
-
-    A--->C
-    B-->C
-    D--copy_from_user 循环按页拷贝-->B</pre>
-
-<p>在5.10上，binder driver的变化：<br><br>1）binder_alloc_mmap_handler函数中不再分配一整块(1M大小)的内核虚拟地址区域<br><br>2）binder_buffer中指向的不再是kernel虚拟地址，而直接是user space虚拟地址，binder_buffer和物理内存之间按页匹配，这个很巧妙。binder_alloc中用pages数组记录分配的每个物理页，比如为vma的第一个4K区间分配的物理页的物理地址就记录在pages[0]中，这样就建立了vma各个4K区间和物理页的直接匹配。在函数binder_alloc_get_page中，根据binder_buffer指向的虚拟地址到alloc-&gt;buffer(binder_alloc记录的vma的起始地址)的offset计算出index，就能在pages数组中找到匹配的物理页的物理地址。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">static struct page *binder_alloc_get_page(struct binder_alloc *alloc, struct binder_buffer *buffer, binder_size_t buffer_offset, pgoff_t *pgoffp)</span><br><span class="line">&#123;</span><br><span class="line">	// 计算index</span><br><span class="line">	binder_size_t buffer_space_offset = buffer_offset + (buffer-&gt;user_data - alloc-&gt;buffer);</span><br><span class="line">	pgoff_t pgoff = buffer_space_offset &amp; ~PAGE_MASK;</span><br><span class="line">	size_t index = buffer_space_offset &gt;&gt; PAGE_SHIFT;</span><br><span class="line">	struct binder_lru_page *lru_page;</span><br><span class="line"></span><br><span class="line">	lru_page = &amp;alloc-&gt;pages[index];</span><br><span class="line">	*pgoffp = pgoff;</span><br><span class="line">	// page_ptr是物理地址</span><br><span class="line">	return lru_page-&gt;page_ptr;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-<p><br>3）在binder_transaction函数中使用binder_alloc_copy_user_to_buffer拷贝binder_transaction_data。在binder_alloc_copy_user_to_buffer中，调用binder_alloc_get_page先找到binder_buffer对应的第一个物理页的物理地址，使用kmap映射一页大小的kernel space虚拟地址区域，然后使用copy_from_user拷贝用户态数据(写入物理页)，接着调用kunmap释放映射的这一页kernel space虚拟地址区域，后面继续循环，直到拷贝完所有的用户态数据。这样做拷贝用户数据过程中也就只占用一页的kernel space虚拟地址区域。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">static void binder_transaction(struct binder_proc *proc,struct binder_transaction_data *tr, ...)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	struct binder_transaction *t;</span><br><span class="line">	// 分配binder_buffer(指向用户虚拟地址)</span><br><span class="line">	t-&gt;buffer = binder_alloc_new_buf(&amp;target_proc-&gt;alloc, tr-&gt;data_size, ...);</span><br><span class="line">	// 拷贝用户态数据</span><br><span class="line">	if (binder_alloc_copy_user_to_buffer(&amp;target_proc-&gt;alloc, t-&gt;buffer, 0, (const void __user *)(uintptr_t)tr-&gt;data.ptr.buffer, tr-&gt;data_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	if (binder_alloc_copy_user_to_buffer(&amp;target_proc-&gt;alloc, t-&gt;buffer, ALIGN(tr-&gt;data_size, sizeof(void *)), (const void __user *)(uintptr_t)tr-&gt;data.ptr.offsets, tr-&gt;offsets_size)) &#123;</span><br><span class="line">		goto err_copy_data_failed;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">unsigned long binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc, struct binder_buffer *buffer, binder_size_t buffer_offset, const void __user *from, size_t bytes)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	while (bytes) &#123;</span><br><span class="line">		unsigned long size;</span><br><span class="line">		unsigned long ret;</span><br><span class="line">		struct page *page;</span><br><span class="line">		// buffer-&gt;user_data如果不是页对齐，就需要计算gpoff匹配到物理页的中间</span><br><span class="line">		pgoff_t pgoff;</span><br><span class="line">		void *kptr;</span><br><span class="line"></span><br><span class="line">		page = binder_alloc_get_page(alloc, buffer,</span><br><span class="line">					     buffer_offset, &amp;pgoff);</span><br><span class="line">		size = min_t(size_t, bytes, PAGE_SIZE - pgoff);</span><br><span class="line">		// kmap映射</span><br><span class="line">		kptr = kmap(page) + pgoff;</span><br><span class="line">		ret = copy_from_user(kptr, from, size);</span><br><span class="line">		// kunmap释放</span><br><span class="line">		kunmap(page);</span><br><span class="line">		if (ret)</span><br><span class="line">			return bytes - size + ret;</span><br><span class="line">		bytes -= size;</span><br><span class="line">		from += size;</span><br><span class="line">		buffer_offset += size;</span><br><span class="line">	&#125;</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
@@ -337,10 +172,9 @@ binder_proc*--binder_alloc</pre>
       <meta itemprop="name" content="Hexo">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/20/binder%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90/" class="post-title-link" itemprop="url">binder中的selinux权限</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          binder中的selinux权限
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -370,7 +204,7 @@ binder_proc*--binder_alloc</pre>
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>基于<a href="http://aospxref.com/android-11.0.0_r21/">http://aospxref.com/android-11.0.0_r21/</a></p>
+        <p>基于<a href="http://aospxref.com/android-11.0.0_r21/">http://aospxref.com/android-11.0.0_r21/</a></p>
 <h1 id="权限配置"><a href="#权限配置" class="headerlink" title="权限配置"></a>权限配置</h1><h2 id="重要的宏"><a href="#重要的宏" class="headerlink" title="重要的宏"></a>重要的宏</h2><p>binder相关的selinux宏定义在system&#x2F;sepolicy&#x2F;public&#x2F;te_macros中</p>
 <h3 id="binder-service"><a href="#binder-service" class="headerlink" title="binder_service"></a>binder_service</h3><p>使用typeattribute把某个service的域(domain)标记成一个binder service域，在定义binder service时使用</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># binder_service(domain)</span><br><span class="line"># Mark a domain as being a Binder service domain.</span><br><span class="line"># Used to allow binder IPC to the various system services.</span><br><span class="line">define(`binder_service&#x27;, `</span><br><span class="line">typeattribute $1 binderservicedomain;</span><br></pre></td></tr></table></figure>
@@ -494,465 +328,33 @@ E-->F-->G-->H</pre>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">// external/selinux/libselinux/src/checkAccess.c</span><br><span class="line">int selinux_check_access(const char *scon, const char *tcon, const char *class, const char *perm, void *aux) &#123;</span><br><span class="line">	int rc;</span><br><span class="line">	security_id_t scon_id;</span><br><span class="line">	security_id_t tcon_id;</span><br><span class="line">	security_class_t sclass;</span><br><span class="line">	access_vector_t av;</span><br><span class="line"></span><br><span class="line">	__selinux_once(once, avc_init_once);</span><br><span class="line"></span><br><span class="line">	if (selinux_enabled != 1)</span><br><span class="line">		return 0;</span><br><span class="line">	// 主体(进程)selinux域转换成sid</span><br><span class="line">	rc = avc_context_to_sid(scon, &amp;scon_id);</span><br><span class="line">	if (rc &lt; 0)</span><br><span class="line">		return rc;</span><br><span class="line">	// 客体(file dir这种)selinux标签转换成sid</span><br><span class="line">	rc = avc_context_to_sid(tcon, &amp;tcon_id);</span><br><span class="line">	if (rc &lt; 0)</span><br><span class="line">		return rc;</span><br><span class="line"></span><br><span class="line">	(void) avc_netlink_check_nb();</span><br><span class="line">	// file 、dir、socket这种客体类型，这里是service_manager，goole自己扩展的</span><br><span class="line">       sclass = string_to_security_class(class);</span><br><span class="line">       if (sclass == 0) &#123;</span><br><span class="line">	       rc = errno;</span><br><span class="line">	       avc_log(SELINUX_ERROR, &quot;Unknown class %s&quot;, class);</span><br><span class="line">	       if (security_deny_unknown() == 0)</span><br><span class="line">		       return 0;</span><br><span class="line">	       errno = rc;</span><br><span class="line">	       return -1;</span><br><span class="line">       &#125;</span><br><span class="line">	// read、write这种权限，这里是add(addService)</span><br><span class="line">       av = string_to_av_perm(sclass, perm);</span><br><span class="line">       if (av == 0) &#123;</span><br><span class="line">	       rc = errno;</span><br><span class="line">	       avc_log(SELINUX_ERROR, &quot;Unknown permission %s for class %s&quot;, perm, class);</span><br><span class="line">	       if (security_deny_unknown() == 0)</span><br><span class="line">		       return 0;</span><br><span class="line">	       errno = rc;</span><br><span class="line">	       return -1;</span><br><span class="line">       &#125;</span><br><span class="line">		// 调用avc_has_perm判断是否有权限</span><br><span class="line">       return avc_has_perm (scon_id, tcon_id, sclass, av, NULL, aux);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/">
+        
 
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="John Doe">
-      <meta itemprop="description" content="">
-    </span>
 
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hexo">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/" class="post-title-link" itemprop="url">【ARM】adrp和adr指令详解</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2022-04-19 22:43:14" itemprop="dateCreated datePublished" datetime="2022-04-19T22:43:14+08:00">2022-04-19</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-20 01:10:03" itemprop="dateModified" datetime="2022-04-20T01:10:03+08:00">2022-04-20</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>对adrp和adr这种PC相对寻址的指令一直只知道个大概，比如在取全局变量时经常就会用adrp指令，但是没有深入去了解，最好最近在看armv8的手册，就再梳理下。</p>
-<h1 id="ADRP"><a href="#ADRP" class="headerlink" title="ADRP"></a>ADRP</h1><p>先看下armv8用户手册中对adrp指令的描述:</p>
-<pre><code>Form PC-relative address to 4KB page adds an immediate value that is shifted left by 12 bits, to the PC value to form a PC-relative address, with the bottom 12 bits masked out, and writes the result to the destination register.
-
-格式：ADRP &lt;Xd&gt;, &lt;label&gt;
-
-&lt;Xd&gt; Is the 64-bit name of the general-purpose destination register, encoded in the &quot;Rd&quot; field.
-&lt;label&gt; Is the program label whose 4KB page address is to be calculated. Its offset from the page address of this instruction, in the range +/-4GB, is encoded as &quot;immhi:immlo&quot; times 4096.
-</code></pre>
-<p>看到上面的这段英文，可能有点绕，没关系，继续往下看：</p>
-<pre><code>adrp指令是32位的，指令编码：
-31 30  29       23                     5 4       0
---------------------------------------------------
-|  |immlo|      |          immhi        |   Rd   |
---------------------------------------------------
-
-指令解码:
-// 从低5位中解析目标寄存器的编号，5位编码可以表示32个
-integer d = UInt(Rd);
-// 从5-23位解析出immhi，从29-30位解析出immhi，加上低12位为0，得到一个32位的立即数
-// 把得到的32位立即数扩充到64位，注意是有符号扩充，因为imm可能为负数
-bits(64) imm = SignExtend(immhi:immlo:Zeros(12), 64);
-
-伪码：
-// 获取PC地址，在armv8上是64位，作为基址base
-bits(64) base = PC[];
-// 将base低12位置为0，求base所在4K页地址
-base&lt;11:0&gt; = Zeros(12);
-// base+imm的结果赋给目标寄存器
-X[d] = base + imm;
-</code></pre>
-<p>对上面英文不理解的看到这里应该对adrp指令有点感悟了，所以看指令的描述不如直接看编码和实现，很简单，adrp就是获取当前的PC地址，低12位置0，然后加上一个imm立即数，将最终结果赋给目标寄存器。但是计算imm所用的immhi和immlo是怎么来的呢？adrp的作用又是啥呢？请看这么一段测试代码:</p>
-<pre><code>// adrp.c
-int a = 0;
-int b = 0;
-
-int main()
-&#123;
-    a = 1;
-    return 0;
-&#125;
-</code></pre>
-<p>编译和显示汇编:</p>
-<pre><code>aarch64-linux-gnu-gcc adrp.c -o adrp
-aarch64-linux-gnu-objdump -D adrp
-</code></pre>
-<p>main函数汇编如下，可以看到寻址全局变量b的时候就用到adrp指令：</p>
-<pre><code>0000000000400570 &lt;main&gt;:
-  400570:       b0000080        adrp    x0, 411000 &lt;_GLOBAL_OFFSET_TABLE_+0x28&gt;
-  400574:       9100c000        add     x0, x0, #0x2c
-  400578:       52800021        mov     w1, #0x1 
-  40057c:       b9000001        str     w1, [x0]
-  400580:       52800000        mov     w0, #0x0
-  400584:       d65f03c0        ret
-
-0000000000411028 &lt;__bss_start&gt;:
-  411028:       00000000        .word   0x00000000
-000000000041102c &lt;a&gt;:
-  41102c:       00000000        .word   0x00000000
-0000000000411030 &lt;b&gt;:
-    ...
-</code></pre>
-<p>“adrp x0, 411000” 这条指令的十六进制机器码为b0000080，转成二进制编码就是:    </p>
-<pre><code>1100 0000 0000 0000 0000 0000 1000 0000
-</code></pre>
-<p>根据指令二进制编码进行解码，可以解析出immhi、immlo、Rd</p>
-<pre><code>Rd    = 0                    (0-4)     表示目的寄存器是X0
-immhi = 0000 0000 0000 100   (5-23)    
-immlo = 10                   (29-30)
-imm = 0000 0000 0000 0001 0010 0000 0000 0000 = 0x12000
-</code></pre>
-<p>再根据伪码算最终赋给目标寄存器X0的值是多少</p>
-<pre><code>bits(64) base = PC[]   // base = 0x400570
-base&lt;11:0&gt; = Zeros(12) // base = 0x400000
-X0 = base + imm;       // X0   = 0x412000
-</code></pre>
-<p>所以”adrp x0, 411000”执行完，X0 &#x3D; 0x412000，继续执行下一条指令”add x0, x0, #0x2c”：</p>
-<pre><code>// 0x2c为a地址到所在4k页地址的offset
-X0 = X0 + 0x2c = 0x41202c
-</code></pre>
-<p>诶～ 0x41202c不就是全局变量a的地址吗？就这样对a寻址成功了？是的，这就是adrp的作用！先根据PC+imm进行寻址，获得a所在的4K页地址，再结合add指令，加上offset得到a的最终地址。这就是PC相对寻址，imm就是个相对PC所在4K页地址的offset，可正可负。那反过来adrp指令编码中的immhi和immlo其实是在编译过程中计算出来的：</p>
-<pre><code>1) 计算全局变量a所在4K页地址(a地址低12位置0)
-2) 计算adrp指令地址所在4K页地址(低12位置0)
-3) imm = a所在4K页地址 - adrp指令所在4K页地址
-4) 从imm中拆出immlo和immhi，编码到adrp指令中
-5) 将a地址到a所在4K页地址的offset编码到下一条add指令中
-</code></pre>
-<p>adrp寻址原理搞清楚了，接着看下结合add指令，寻址范围有多少：</p>
-<pre><code>// 范围共8G，PC地址向前4G，向后4G
-2的21次方(immhi和imm共21位) × 4K = -4G ~ +4G
-</code></pre>
-<h1 id="ADR"><a href="#ADR" class="headerlink" title="ADR"></a>ADR</h1><p>待分析</p>
-
-      
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/04/19/%E3%80%90ARM%E3%80%91adrp%E5%92%8Cadr%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/" rel="prev" title="【ARM】adrp和adr指令详解">
+      <i class="fa fa-chevron-left"></i> 【ARM】adrp和adr指令详解
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/" rel="next" title="binder一次拷贝的实现在5.10内核上的变化">
+      binder一次拷贝的实现在5.10内核上的变化 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="John Doe">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hexo">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/18/%E3%80%90Android%E3%80%91ProcessState%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E4%B8%AD%E7%9A%84%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%E5%86%99%E6%B3%95%E5%B9%B6%E4%B8%8D%E5%AE%89%E5%85%A8/" class="post-title-link" itemprop="url">【Android】ProcessState单例模式中的双重检查锁定写法并不安全</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2022-04-18 22:50:14" itemprop="dateCreated datePublished" datetime="2022-04-18T22:50:14+08:00">2022-04-18</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-19 22:49:56" itemprop="dateModified" datetime="2022-04-19T22:49:56+08:00">2022-04-19</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在看binder源码的时候，看到&#x2F;frameworks&#x2F;native&#x2F;libs&#x2F;binder&#x2F;ProcessState.cpp中有这么一笔修改，说双重检查锁定模式在多线程环境下并不安全：</p>
-<pre><code>double checked locking pattern is not safe on SMP
-Change-Id: Ie6dd564bdcd45647cb4d62ab259462e3db112576
-</code></pre>
-<p>修改前的代码本质上是使用双重检查锁定模式的写法，这个写法在单例模式中很常见：</p>
-<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
-&#123;
-    // 第一次检查：如果gprocess不为空，直接返回
-    if (gProcess != NULL) &#123;
-        return gProcess;
-    &#125;
-    // gProces为空，可能有多个线程同时执行new ProcessState
-    // 所以加锁保证只有一个线程能去new ProcessState
-    Mutex::Autolock _l(gProcessMutex);
-    // 第二次检查：如果gprocess为空，就new ProcessState
-    if (gProcess == NULL) &#123;
-        gProcess = new ProcessState(&quot;/dev/binder&quot;);
-    &#125;
-    return gProcess;
-&#125;
-</code></pre>
-<p>修改后的代码在函数开头就加锁，不管ProcessState对象有没有被创建，每个线程通过这个单例函数获取ProcessState对象时就得获取锁，这样效率肯定会变低，为什么要这么改呢？为什么以前双重检查锁定模式的写法不安全呢？</p>
-<pre><code>sp&lt;ProcessState&gt; ProcessState::self()
-&#123;
-    // 函数开头就加锁，也能保证只有一个线程能去new ProcessState
-    Mutex::Autolock _l(gProcessMutex);
-    // 只有一次检查
-    if (gProcess != NULL) &#123;
-        return gProcess;
-    &#125;
-    gProcess = new ProcessState(&quot;/dev/binder&quot;);
-    return gProcess;
-&#125;
-</code></pre>
-<p>创建一个对象并不是原子操作，gProcess &#x3D; new ProcessState(“&#x2F;dev&#x2F;binder”)可以分为3步：</p>
-<pre><code>1. 分配ProcessState对象所需内存
-2. 初始化对象，比如成员变量fd = open(&quot;/dev/binder&quot;)
-3. 将分配的内存地址赋值给gProcess
-</code></pre>
-<p>因为ARM架构是弱内存序，为了性能优化有时候CPU会做指令重排，正常代码执行顺序是1-&gt;2-&gt;3，但是可能被重排成1-&gt;3-&gt;2。这种重排也不会对单线程运行的结果产生啥影响，所以是有可能发生的。那我们再回过头来看ProcessState::self()函数以前的写法，多个线程同时调用该函数就可能会出现问题：</p>
-<pre><code>---------------------------------------------------------------
-初始:  gProcess = NULL
----------------------------------------------------------------
-线程1: 负责创建对象，但是指令被重排成1-&gt;3-&gt;2，执行完1和3，2还没执行
-      gProcess已被赋值却没有完成对象初始化
----------------------------------------------------------------
-线程2: 开始获取gProcess，因为gProcess已被线程1赋值，所以获取成功，
-      但是线程1还没有完成对象的初始化，线程2去访问gProcess就会出现问题
----------------------------------------------------------------
-</code></pre>
-<p>所以为了多线程环境下的安全性，只好在函数开头就加锁了，尽管会牺牲一定的效率。Android在开发者网站上也说明了这种场景，链接如下：</p>
-<pre><code>https://developer.android.google.cn/training/articles/smp?hl=zh_cn
-</code></pre>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="John Doe">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hexo">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/17/%E3%80%90Android%E3%80%91Refbase%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E5%BA%8F/" class="post-title-link" itemprop="url">【Android】Refbase对象引用计数操作中的内存序</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2022-04-17 10:54:16" itemprop="dateCreated datePublished" datetime="2022-04-17T10:54:16+08:00">2022-04-17</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2022-04-18 22:46:15" itemprop="dateModified" datetime="2022-04-18T22:46:15+08:00">2022-04-18</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在读Android智能指针sp、wp以及Refbase的源码时，发现对象强引用计数mstrong递增的时候使用memory_order_relaxed内存序，但是在递减的时候使用memory_order_release内存序，并且在递减为0时设置内存屏障atomic_thread_fence(memory_order_acquire)。强引用计数mstrong递增使用relaxed序好理解，只要保证原子性就可以，但是递减为什么不能用relaxed内存序，差异在哪？</p>
-<pre><code>std::atomic&lt;int32_t&gt; mStong;
-
-void RefBase::incStrong(const void* id) const
-&#123;
-    weakref_impl* const refs = mRefs;
-    refs-&gt;incWeak(id);
-    ...
-    // 递增使用memory_order_relaxed内存序
-    const int32_t c = refs-&gt;mStrong.fetch_add(1, std::memory_order_relaxed);
-    if (c != INITIAL_STRONG_VALUE)  &#123;
-        return;
-    &#125;
-    ...
-&#125;
-void RefBase::decStrong(const void* id) const
-&#123;
-    weakref_impl* const refs = mRefs;
-    ...
-    // 递减使用memory_order_release内存序
-    const int32_t c = refs-&gt;mStrong.fetch_sub(1, std::memory_order_release);
-    // c为递减之前的值，为1说明mstrong已经为0了
-    if (c == 1) &#123;
-        // 设置内存屏障
-        std::atomic_thread_fence(std::memory_order_acquire);
-        ...
-        // delete对象
-        delete this;
-    &#125;
-    ...
-&#125;
-</code></pre>
-<p>在stack overflow中搜到这么个回答，其中有例子代码，但是感觉也没讲到本质，一直在纠结release-acquire ordering的表面意思，没有从指令重排的角度讲，看了半天还没理解：</p>
-<pre><code>https://stackoverflow.com/questions/48124031/stdmemory-order-relaxed-atomicity-with-respect-to-the-same-atomic-variable/48148318#48148318
-</code></pre>
-<p>后面又去看了一些资料，mstrong递减使用memory_order_release内存序并且设置内存屏障, 就是为了保证：</p>
-<pre><code>在多线程场景下，不管最后哪个线程(将mstrong递减为0的线程)负责delete对象，delete对象一定要发生在其他线程访问对象完成之后
-</code></pre>
-<p>memory_order_release作用是保证当前线程所有读写内存的指令不能重排到release后面，即所有线程访问对象发生在mstrong递减之前</p>
-<pre><code>cppreference中的描述：A store operation with this memory order performs the release operation: no reads or writes in the current thread can be reordered after this store. All writes in the current thread are visible in other threads that acquire the same atomic variable (see Release-Acquire ordering below) and writes that carry a dependency into the atomic variable become visible in other threads that consume the same atomic (see Release-Consume ordering below). 
-</code></pre>
-<p>memory_order_acquire作用是保证表示当前线程读写内存的指令不能重排到acquire前面，在mstrong递减为0时，设置acquire的内存屏障，那么在最后将refcount递减为0的线程中，delete对象一定发生在递减为0之后</p>
-<pre><code>cppreference中的描述：A load operation with this memory order performs the acquire operation on the affected memory location: no reads or writes in the current thread can be reordered before this load. All writes in other threads that release the same atomic variable are visible in the current thread (see Release-Acquire ordering below)
-</code></pre>
-<p>memory_order_release和memory_order_acquire配合起来用就可以达成上面所说的目的</p>
-<p>请看下面例子：</p>
-<p>有2个线程通过sp智能指针访问同一个对象obj，因为1.2是一定发生在2.2之前(递减为原子操作，肯定是先递减为1，再递减为0)，如果完全按照代码顺序，那么1.1必然发生在2.3之前，不会存在什么问题</p>
-<pre class="mermaid">graph TB
-A(thread-1)
-B[1.1 通过sp指针访问对象obj]
-C[1.2 obj引用计数递减为1]
-D[线程退出]
-E(thread-2)
-F[2.1 通过sp指针访问对象obj]
-G[2.2 obj引用计数递减为0]
-H[2.3 delete obj]
-I[线程退出]
-A-->B-->C-->D
-E-->F-->G-->H-->I</pre>
-
-<p>但是ARM架构是弱内存序，cpu执行指令时为了做一些优化，可能会对指令进行重排，但是一定会保证单线程代码执行的正确性。比如将1.1重排到1.2之后，单独看thread-1，是不存在任何问题，因为thread-1递减mstrong之后不需要delete对象，完全不影响正确性。重排之后变成下面这样。虽然1.2还是一定发生在2.2之前，但是已经无法保证1.1发生在2.3之前了。那就有问题了</p>
-<pre class="mermaid">graph TB
-A(thread-1 重排后)
-B[1.1 通过sp指针访问对象obj]
-C[1.2 obj引用计数递减为1]
-D[线程退出]
-E(thread-2)
-F[2.1 通过sp指针访问对象obj]
-G[2.2 obj引用计数递减为0]
-H[2.3 delete obj]
-I[线程退出]
-A-->C-->B-->D
-E-->F-->G-->H-->I</pre>
-
-<p>再看下cppreference中给的例子，和上面的其实是类似的：</p>
-<pre><code>std::atomic&lt;std::string*&gt; ptr;
-int data;
-
-void producer()
-&#123;
-    std::string* p  = new std::string(&quot;Hello&quot;);
-    data = 42;
-    // 线程1将p赋值给ptr
-    // 并且使用release保证data = 42不会重排在store之后
-    // 其实重排并不会对线程1正确性产生影响)
-    ptr.store(p, std::memory_order_release);
-&#125;
-void consumer()
-&#123;
-    std::string* p2;
-    // 线程2循环读取ptr，判断ptr是否已经被线程1赋值
-    // 并且使用acquire保证assert(data == 42)不会重排在load之后执行
-    // 其实重排也不会对线程2正确性产生影响
-    while (!(p2 = ptr.load(std::memory_order_acquire)))
-    ;
-    // 走到这里说明ptr已经被线程1赋值了，那么data肯定已经被线程1赋值为42了
-    assert(*p2 == &quot;Hello&quot;); // 必然为真
-    assert(data == 42); // 必然为真
-&#125;
-int main()
-&#123;
-    std::thread t1(producer);
-    std::thread t2(consumer);
-    t1.join(); t2.join();
-&#125;
-</code></pre>
-<p>到这里问题基本上搞清楚了，memory_order_release和memory_order_acquire配合起来可以用来做线程间的同步。</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
   
 
 
@@ -1005,6 +407,7 @@ int main()
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9D%83%E9%99%90%E9%85%8D%E7%BD%AE"><span class="nav-number">1.</span> <span class="nav-text">权限配置</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8D%E8%A6%81%E7%9A%84%E5%AE%8F"><span class="nav-number">1.1.</span> <span class="nav-text">重要的宏</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#binder-service"><span class="nav-number">1.1.1.</span> <span class="nav-text">binder_service</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#binder-use"><span class="nav-number">1.1.2.</span> <span class="nav-text">binder_use</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#add-service"><span class="nav-number">1.1.3.</span> <span class="nav-text">add_service</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#binder-call"><span class="nav-number">1.1.4.</span> <span class="nav-text">binder_call</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9A%E4%B9%89%E4%B8%80%E4%B8%AAbinder-service"><span class="nav-number">1.2.</span> <span class="nav-text">定义一个binder service</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AEclient%E8%AE%BF%E9%97%AEservice%E7%9A%84%E6%9D%83%E9%99%90"><span class="nav-number">1.3.</span> <span class="nav-text">配置client访问service的权限</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#kernel%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90%E6%A3%80%E6%9F%A5"><span class="nav-number">2.</span> <span class="nav-text">kernel中的selinux权限检查</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#set-context-mgr%E6%9D%83%E9%99%90"><span class="nav-number">2.1.</span> <span class="nav-text">set_context_mgr权限</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#call%E5%92%8Cimpersonate%E6%9D%83%E9%99%90"><span class="nav-number">3.</span> <span class="nav-text">call和impersonate权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#transfer%E6%9D%83%E9%99%90"><span class="nav-number">4.</span> <span class="nav-text">transfer权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#fd-use-%E6%9D%83%E9%99%90"><span class="nav-number">5.</span> <span class="nav-text">fd use 权限</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#servicemanager%E4%B8%AD%E7%9A%84selinux%E6%9D%83%E9%99%90%E6%A3%80%E6%9F%A5"><span class="nav-number">6.</span> <span class="nav-text">servicemanager中的selinux权限检查</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%8E%B7%E5%8F%96client%E5%92%8Cservice%E7%9A%84selinux%E5%9F%9F"><span class="nav-number">6.1.</span> <span class="nav-text">获取client和service的selinux域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E8%AF%A2selinux%E7%AD%96%E7%95%A5%E5%BA%93%E8%BF%9B%E8%A1%8Cselinux%E6%9D%83%E9%99%90%E6%A3%80%E6%9F%A5"><span class="nav-number">6.2.</span> <span class="nav-text">查询selinux策略库进行selinux权限检查</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
