@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文主要分析kernel线程、init进程以及init fork出来的其他进程的selinux域(domain)是怎么设置的，以及设置selinux域其实就是设置进程的sid。 从kernel开始说起0号线程在start_kernel过程中，在生成1号线程和2号线程之前，就已经调用cred_init_security函数设置了自己的sid：SECINITSID_KERNEL(值为1)。因为子线程会">
+<meta property="og:type" content="article">
+<meta property="og:title" content="设置进程selinux域的几种方法和原理">
+<meta property="og:url" content="http://example.com/2022/05/08/%E4%BB%8E%E5%86%85%E6%A0%B80%E5%8F%B7%E7%BA%BF%E7%A8%8B%E5%BC%80%E5%A7%8B%E8%A7%A3%E5%AF%86%E8%BF%9B%E7%A8%8Bselinux%E5%9F%9F%E7%9A%84%E8%AE%BE%E7%BD%AE/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="本文主要分析kernel线程、init进程以及init fork出来的其他进程的selinux域(domain)是怎么设置的，以及设置selinux域其实就是设置进程的sid。 从kernel开始说起0号线程在start_kernel过程中，在生成1号线程和2号线程之前，就已经调用cred_init_security函数设置了自己的sid：SECINITSID_KERNEL(值为1)。因为子线程会">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-05-08T14:51:33.000Z">
+<meta property="article:modified_time" content="2022-05-11T16:36:01.853Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/05/08/%E4%BB%8E%E5%86%85%E6%A0%B80%E5%8F%B7%E7%BA%BF%E7%A8%8B%E5%BC%80%E5%A7%8B%E8%A7%A3%E5%AF%86%E8%BF%9B%E7%A8%8Bselinux%E5%9F%9F%E7%9A%84%E8%AE%BE%E7%BD%AE/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>设置进程selinux域的几种方法和原理 | Hexo</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hexo</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/05/08/%E4%BB%8E%E5%86%85%E6%A0%B80%E5%8F%B7%E7%BA%BF%E7%A8%8B%E5%BC%80%E5%A7%8B%E8%A7%A3%E5%AF%86%E8%BF%9B%E7%A8%8Bselinux%E5%9F%9F%E7%9A%84%E8%AE%BE%E7%BD%AE/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          设置进程selinux域的几种方法和原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2022-05-08 22:51:33" itemprop="dateCreated datePublished" datetime="2022-05-08T22:51:33+08:00">2022-05-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-05-12 00:36:01" itemprop="dateModified" datetime="2022-05-12T00:36:01+08:00">2022-05-12</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文主要分析kernel线程、init进程以及init fork出来的其他进程的selinux域(domain)是怎么设置的，以及设置selinux域其实就是设置进程的sid。</p>
+<h1 id="从kernel开始说起"><a href="#从kernel开始说起" class="headerlink" title="从kernel开始说起"></a>从kernel开始说起</h1><p>0号线程在start_kernel过程中，在生成1号线程和2号线程之前，就已经调用cred_init_security函数设置了自己的sid：SECINITSID_KERNEL(值为1)。因为子线程会继承父线程的cred，所以后面所有生成的kernel线程的SID都为SECINITSID_KERNEL，对应kernel域：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># system/sepolicy/public/kernel.te</span><br><span class="line"># kernel域定义</span><br><span class="line">type kernel, domain, mlstrustedsubject;</span><br></pre></td></tr></table></figure>
+
+<pre class="mermaid">graph BR
+H("0号线程<br>(也叫idle线程，使用静态的task_struct和内核栈)")
+A["start_kernel()"]
+B["security_init()"]
+C["selinux_init()"]
+D["cred_init_security()<br>设置kernel的selinux域"]
+G["rest_init()"]
+E["1号线程kernel_init<br>kernel_thread(kernel_init, NULL, CLONE_FS);"]
+F["2号线程kthreadd<br>kernel_thread(kthreadd, NULL, CLONE_FS | CLONE_FILES);"]
+J["生成其他所有内核线程"]
+H-->A-->B-->C-->D-->G
+G-->E
+G-->F-->J</pre>
+<p>cred_init_security函数，把current-&gt;real_cred-&gt;osid&#x2F;sid设置为SECINITSID_KERNEL，也就是把0号线程的osid&#x2F;sid都设置为SECINITSID_KERNEL</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * initialise the security for the init task</span><br><span class="line"> */</span><br><span class="line">static void cred_init_security(void)</span><br><span class="line">&#123;</span><br><span class="line">	struct task_security_struct *tsec;</span><br><span class="line"></span><br><span class="line">	tsec = selinux_cred(unrcu_pointer(current-&gt;real_cred));</span><br><span class="line">	tsec-&gt;osid = tsec-&gt;sid = SECINITSID_KERNEL;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<pre class="mermaid">classDiagram
+class task_struct {
+    ...
+    const struct cred __rcu	*real_cred
+    ...
+}
+class cred {
+    ...
+    void		*security
+    ...
+}
+class task_security_struct {
+    u32 osid;		/* SID prior to last execve */
+    u32 sid;		/* current SID */
+    u32 exec_sid;		/* exec SID */
+    u32 create_sid;		/* fscreate SID */
+    u32 keycreate_sid;	/* keycreate SID */
+    u32 sockcreate_sid;	/* fscreate SID */
+}
+
+
+task_struct-->cred
+cred-->task_security_struct</pre>
+
+<h1 id="init进程"><a href="#init进程" class="headerlink" title="init进程"></a>init进程</h1><h2 id="init进程启动流程"><a href="#init进程启动流程" class="headerlink" title="init进程启动流程"></a>init进程启动流程</h2><p>init进程比较曲折，1号线程kernel_init执行rootfs下的init可执行文件切换到用户态，这个时候init的selinux域还是kernel域，android把这个阶段叫做first stage，在first stage中加载完selinux策略，execv执行system分区中的init可执行程序，init的selinux域才切换为init域，android把这个阶段叫做second stage。所以first stage和second stage，虽然都是init进程，但是其实跑的可执行文件不是同一个。</p>
+<pre class="mermaid">graph BR
+H("1号线程<br>kernel_init")
+A["kernel_init()"]
+B["run_init_process()"]
+C["kernel_execve()<br>执行rootfs下的init可执行文件并切换到用户态"]
+D("init进程<br>(u:object_r:kernel:s0)")
+E["SetupSelinux()<br>加载selinux策略"]
+F["execv(/system/bin/init, ...)<br> 执行system分区中的init可执行文件"]
+G("init进程<br>(u:object_r:init:s0)")
+
+H-->A-->B-->C-->D-->E-->F-->G</pre>
+<h2 id="init策略配置"><a href="#init策略配置" class="headerlink" title="init策略配置"></a>init策略配置</h2><p>先看下init的selinux策略配置，定义了init域和init_exec标签，配置了kernel域进程执行标签为init_exec的可执行文件时自动转换成init域的规则</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"># sepolicy/public/init.te</span><br><span class="line"># 定义init域</span><br><span class="line">type init, domain, mlstrustedsubject;</span><br><span class="line"># 定义/system/bin/init文件的selinux标签：init_exec</span><br><span class="line">type init_exec, system_file_type, exec_type, file_type;</span><br><span class="line"></span><br><span class="line"># system/sepolicy/private/kernel.te</span><br><span class="line"># kernel域进程执行标签为init_exec的可执行文件时自动转换成init域</span><br><span class="line">domain_auto_trans(kernel, init_exec, init)</span><br><span class="line"></span><br><span class="line"># domain_auto_trans宏展开就变成</span><br><span class="line">allow kernel init_exec:file &#123; getattr open read execute map &#125;;</span><br><span class="line">allow kernel init:process transition;</span><br><span class="line">allow init init_exec:file &#123; entrypoint open read execute getattr map &#125;;</span><br><span class="line"># 上面只是赋予kernel域进程做域转换的权限</span><br><span class="line"># 下面这句才是出发自动转换的核心</span><br><span class="line">type_transition kernel init_exec:process init;</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+
+<h2 id="从kernel域转换成init域"><a href="#从kernel域转换成init域" class="headerlink" title="从kernel域转换成init域"></a>从kernel域转换成init域</h2><p>上面的配置是怎么生效的呢？execv是怎么根据规则把init从kernel域转换成init域的呢？execv流程如下，根据函数名就能知道selinux域转换发生在selinux_bprm_creds_for_exec函数中</p>
+<pre class="mermaid">graph LR
+A["execv(/system/bin/init, ...)"]
+B["sys_execve()"]
+C["bprm_execve()"]
+D["security_bprm_creds_for_exec()"]
+E["exec_binprm()"]
+A-->B-->C-->D-->E</pre>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br></pre></td><td class="code"><pre><span class="line">static int selinux_bprm_creds_for_exec(struct linux_binprm *bprm)</span><br><span class="line">&#123;</span><br><span class="line">	const struct task_security_struct *old_tsec;</span><br><span class="line">	struct task_security_struct *new_tsec;</span><br><span class="line">	struct inode_security_struct *isec;</span><br><span class="line">	struct common_audit_data ad;</span><br><span class="line">	struct inode *inode = file_inode(bprm-&gt;file);</span><br><span class="line">	int rc;</span><br><span class="line"></span><br><span class="line">	/* SELinux context only depends on initial program or script and not</span><br><span class="line">	 * the script interpreter */</span><br><span class="line"></span><br><span class="line">	old_tsec = selinux_cred(current_cred());</span><br><span class="line">	new_tsec = selinux_cred(bprm-&gt;cred);</span><br><span class="line">	isec = inode_security(inode);</span><br><span class="line"></span><br><span class="line">	/* Default to the current task SID. */</span><br><span class="line">	new_tsec-&gt;sid = old_tsec-&gt;sid;</span><br><span class="line">	new_tsec-&gt;osid = old_tsec-&gt;sid;</span><br><span class="line"></span><br><span class="line">	if (old_tsec-&gt;exec_sid) &#123;</span><br><span class="line">		new_tsec-&gt;sid = old_tsec-&gt;exec_sid;</span><br><span class="line">		/* Reset exec SID on execve. */</span><br><span class="line">		new_tsec-&gt;exec_sid = 0;</span><br><span class="line"></span><br><span class="line">		/* Fail on NNP or nosuid if not an allowed transition. */</span><br><span class="line">		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);</span><br><span class="line">		if (rc)</span><br><span class="line">			return rc;</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		/* Check for a default transition on this program. */</span><br><span class="line">		rc = security_transition_sid(&amp;selinux_state, old_tsec-&gt;sid,</span><br><span class="line">					     isec-&gt;sid, SECCLASS_PROCESS, NULL,</span><br><span class="line">					     &amp;new_tsec-&gt;sid);</span><br><span class="line">		if (rc)</span><br><span class="line">			return rc;</span><br><span class="line"></span><br><span class="line">		/*</span><br><span class="line">		 * Fallback to old SID on NNP or nosuid if not an allowed</span><br><span class="line">		 * transition.</span><br><span class="line">		 */</span><br><span class="line">		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);</span><br><span class="line">		if (rc)</span><br><span class="line">			new_tsec-&gt;sid = old_tsec-&gt;sid;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ad.type = LSM_AUDIT_DATA_FILE;</span><br><span class="line">	ad.u.file = bprm-&gt;file;</span><br><span class="line"></span><br><span class="line">	if (new_tsec-&gt;sid == old_tsec-&gt;sid) &#123;</span><br><span class="line">		rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">				  old_tsec-&gt;sid, isec-&gt;sid,</span><br><span class="line">				  SECCLASS_FILE, FILE__EXECUTE_NO_TRANS, &amp;ad);</span><br><span class="line">		if (rc)</span><br><span class="line">			return rc;</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		/* Check permissions for the transition. */</span><br><span class="line">		rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">				  old_tsec-&gt;sid, new_tsec-&gt;sid,</span><br><span class="line">				  SECCLASS_PROCESS, PROCESS__TRANSITION, &amp;ad);</span><br><span class="line">		if (rc)</span><br><span class="line">			return rc;</span><br><span class="line"></span><br><span class="line">		rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">				  new_tsec-&gt;sid, isec-&gt;sid,</span><br><span class="line">				  SECCLASS_FILE, FILE__ENTRYPOINT, &amp;ad);</span><br><span class="line">		if (rc)</span><br><span class="line">			return rc;</span><br><span class="line"></span><br><span class="line">		/* Check for shared state */</span><br><span class="line">		if (bprm-&gt;unsafe &amp; LSM_UNSAFE_SHARE) &#123;</span><br><span class="line">			rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">					  old_tsec-&gt;sid, new_tsec-&gt;sid,</span><br><span class="line">					  SECCLASS_PROCESS, PROCESS__SHARE,</span><br><span class="line">					  NULL);</span><br><span class="line">			if (rc)</span><br><span class="line">				return -EPERM;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		/* Make sure that anyone attempting to ptrace over a task that</span><br><span class="line">		 * changes its SID has the appropriate permit */</span><br><span class="line">		if (bprm-&gt;unsafe &amp; LSM_UNSAFE_PTRACE) &#123;</span><br><span class="line">			u32 ptsid = ptrace_parent_sid();</span><br><span class="line">			if (ptsid != 0) &#123;</span><br><span class="line">				rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">						  ptsid, new_tsec-&gt;sid,</span><br><span class="line">						  SECCLASS_PROCESS,</span><br><span class="line">						  PROCESS__PTRACE, NULL);</span><br><span class="line">				if (rc)</span><br><span class="line">					return -EPERM;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		/* Clear any possibly unsafe personality bits on exec: */</span><br><span class="line">		bprm-&gt;per_clear |= PER_CLEAR_ON_SETID;</span><br><span class="line"></span><br><span class="line">		/* Enable secure mode for SIDs transitions unless</span><br><span class="line">		   the noatsecure permission is granted between</span><br><span class="line">		   the two SIDs, i.e. ahp returns 0. */</span><br><span class="line">		rc = avc_has_perm(&amp;selinux_state,</span><br><span class="line">				  old_tsec-&gt;sid, new_tsec-&gt;sid,</span><br><span class="line">				  SECCLASS_PROCESS, PROCESS__NOATSECURE,</span><br><span class="line">				  NULL);</span><br><span class="line">		bprm-&gt;secureexec |= !!rc;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/04/24/binder%E4%B8%80%E6%AC%A1%E6%8B%B7%E8%B4%9D%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%9C%A85.10%E5%86%85%E6%A0%B8%E4%B8%8A%E7%9A%84%E5%8F%98%E5%8C%96/" rel="prev" title="binder一次拷贝的实现在5.10内核上的变化">
+      <i class="fa fa-chevron-left"></i> binder一次拷贝的实现在5.10内核上的变化
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8Ekernel%E5%BC%80%E5%A7%8B%E8%AF%B4%E8%B5%B7"><span class="nav-number">1.</span> <span class="nav-text">从kernel开始说起</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#init%E8%BF%9B%E7%A8%8B"><span class="nav-number">2.</span> <span class="nav-text">init进程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#init%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B"><span class="nav-number">2.1.</span> <span class="nav-text">init进程启动流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#init%E7%AD%96%E7%95%A5%E9%85%8D%E7%BD%AE"><span class="nav-number">2.2.</span> <span class="nav-text">init策略配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8Ekernel%E5%9F%9F%E8%BD%AC%E6%8D%A2%E6%88%90init%E5%9F%9F"><span class="nav-number">2.3.</span> <span class="nav-text">从kernel域转换成init域</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">John Doe</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">6</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">John Doe</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+if (document.querySelectorAll('pre.mermaid').length) {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/mermaid@8/dist/mermaid.min.js', () => {
+    mermaid.initialize({
+      theme    : 'forest',
+      logLevel : 3,
+      flowchart: { curve     : 'linear' },
+      gantt    : { axisFormat: '%m/%d/%Y' },
+      sequence : { actorMargin: 50 }
+    });
+  }, window.mermaid);
+}
+</script>
+
+
+  
+
+  
+
+</body>
+</html>
